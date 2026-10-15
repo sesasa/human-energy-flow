@@ -1,0 +1,29 @@
+# Final review: micronutrient stores and UI
+
+I found no defect in the physiology core. Everything listed below is draft-state handling, copy or layout. This was a read-only review. I didn't open any `figure-*.png` files (I had no directory listing to find them), and I didn't see results from `tests/status-browser.ts`.
+
+## What works as specified
+- **Intake, absorption and body pools are separate:** each is labelled distinctly in the panel, the main store card and the tooltips. Vitamin D and magnesium stay intake-only.
+- **Iron accounting:** the iron total balances against absorption minus losses every day. About 22 mg/day is recycled against 1.2 mg/day lost. New marrow iron takes 7 days to reach red cells. Releases from stores are capped, and absorption is regulated by current stores, same-meal vitamin C and phytate-rich foods.
+- **Low stores don't imply anemia:** red-cell iron stays at 2400 mg until the projection stops. The curves and the milestone numbers stop at that point, while B12 keeps projecting. Body composition and performance are unaffected (tested).
+- **Reference diet and anchors:** the reference diet stays within 2% over 1095 days. The 600 mg / 2500 µg anchors and the 42% / 32% low starts are labelled as model values, not lab results or targets.
+- **One-day vs repeated edits:** a one-day change affects only day 0, and the starting status holds for the whole run. The repeated Mon/Thu pairing moves the year-1 index by more than 1 point; the one-day version by less than 0.3.
+- **Main store card:** the show/hide rules match the spec (`main.ts:181`).
+
+## Issues (6)
+
+| # | Priority | Area | Issue → fix |
+|---|---|---|---|
+| 1 | **P2 defect** | `dietPanel.ts:23`, `:78` | `pending()` ignores the scope dropdown and the selected start day. Switching from "this day only" to "repeat weekly", or picking a different day, isn't flagged as a draft, but Run applies something different. Discard also leaves both unchanged, so after a one-day apply the restored day can quietly preview as a repeating week. **Fix:** include scope and `selected` vs `app.once`/`app.startDay` in `pending()`, and restore both on Discard and on open. |
+| 2 | **P2 defect** | `dietPanel.ts:18`, `nutrientPanel.ts:52` | "Add this pair" stacks: each click adds another +150 g lentils and +150 g orange and removes another 100 g rice. Also, when scope is "day", the impact text uses the applied week (`preview().week`) instead of the draft that the button edits. **Fix:** once the draft already contains the pair, disable the button and show "Added to Mon + Thu", and compute the impact from `draft`. |
+| 3 | P3 defect | `main.ts:137` | In day and intense modes, `Math.floor(position/1440)` becomes 1 at 24:00. The card then shows Tuesday's menu and the day-1 index on a Monday view. **Fix:** use 0 when not in long-term mode. |
+| 4 | P3 copy | `nutrientPanel.ts:45` | The one-day scope covers a whole day, but the note says "One meal has little effect…". **Fix:** "One day of food has little effect on a year of stores." |
+| 5 | P3 layout | `main.ts:62–63` (mobile) | The long-term timeline labels overlap on mobile ("3 month6 months"), and "Start" is clipped (`stores-mobile.png`). **Fix:** hide the 3- and 6-month labels on narrow screens. |
+| 6 | Polish | `nutrientPanel.ts:59`, `main.ts:188` | The tooltip title "Iron stores / ferritin" pairs the model index with a lab name, even though the body text disclaims it. **Fix:** retitle to "Iron reserve (model)" and keep ferritin only in the explanation. |
+
+## Simplifying UI refinements (optional)
+- **Starting-store options:** shorten "Low stores · documented / hypothetical" to "Low (chosen starting condition)" and "Reference stores · assumed" to "Reference".
+- **Clinical note:** show the "confirmed deficiency may require clinician…" paragraph only when a low status or an altered assumption is selected.
+- **Stores tab footer:** on desktop, the sticky footer pushes the flow diagram below the first screen (`stores-desktop.png`). Hide the scope dropdown and its note in the stores tab and keep only the Apply button; scope is a Meals decision.
+- **Iron reserve tile:** drop the "Model index · not a ferritin result" line under the bar. The ⓘ tooltip and the "Reserve index · not a blood-test value" footer already say this.
+- **Activity view (`activity-run.png`):** the running figure and heart-rate context read clearly. One outside-scope inconsistency: "Recovery state: **Ready**" during the run contradicts its own tooltip ("cannot tell whether you are ready to train"). A neutral word like "High" would fix it.

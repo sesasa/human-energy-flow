@@ -1,0 +1,12 @@
+# Diet templates — implementation proposal
+
+User: keep the exact existing reference week as Healthy; add only Fast-food / ultra-processed and Low-variety nutrient-limited templates. Actual food composition drives results, with person/activity/sleep unchanged, same day and long-term engines, editable real portions. No automatic deficiency assignment.
+
+Proposed implementation:
+- Leave the frozen reference menu and all existing food records unchanged. Add sourced CoFID2021 foods by exact source code, preserve nulls. Add two authored realistic repetitive weekly menus, with two meals/day for the limited staple menu. No forced calorie or nutrient goals.
+- Add a simple three-choice selector to the shared Diet popup. Selection immediately previews meals/totals/selected lab trajectories as a draft; existing Run applies it. Switching templates preserves each template's current draft portions for easy comparison. Existing reset restores Healthy exactly. Add reset selected-template controls only if needed; avoid excess UI.
+- Template identity is metadata only, never a multiplier or input to physiology. Same Scenario/person/sprint/activity/cycle and lab observations. Preserve dietAtResult anchors across templates.
+- Show calories/macros/fibre and sodium/food coverage with actual values. Reuse current SVG plate language with appropriate burger/fries/pizza/chicken/tea/cola illustrations. Meal keyboard navigation must work with two meals instead of a hardcoded four.
+- Existing energy/macro digestion/glycogen/protein/sprint engines receive actual meal input. Investigate whether calorie/protein restriction currently prevents lean gains only vs also loss; scope defensible changes as needed rather than a diet-label penalty. Numeric serum B12/folate extrapolation remains bounded; for large diet changes avoid making up a lab trajectory. Communicate outside-scope values and show intake/pool trend if needed using the existing conserved pools.
+
+Please critique this approach before implementation. Read data/README.md, scripts/extract-foods.py, src/model/diet.ts, dietSimulation.ts, longTerm.ts, micronutrients.ts, labProjection.ts and src/visual/dietPanel.ts as needed. Recommend a simple UI, integration hazards, model limitations, and realistic portions for both new templates. Do not edit files or run commands. Be concise and concrete. No arbitrary nutrient values or diet-specific penalties.

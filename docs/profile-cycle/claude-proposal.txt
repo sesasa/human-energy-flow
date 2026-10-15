@@ -1,0 +1,70 @@
+Just finished reading the iron model, lab projection and profile code. Here's my review.
+
+# Review: profile, navigation and menstrual iron
+
+The overall direction is sound. Most of the risk is in four places: **where the menstrual loss enters the iron model**, **profile data never reaching the micronutrient code**, **the hard-coded loss cases in the lab projection**, and **the presets**. In priority order:
+
+## P0: Architecture blockers
+
+1. **The profile never reaches the micronutrient code.** `DietApplication` (`src/model/diet.ts:59`) has no `person`. `simulateNutrients` uses a fixed `requiredLoss` of 1.2 or 2.4 mg/day (`src/model/micronutrients.ts:92`). Also, `labProjection` builds its runs with `status:{...defaultNutrientSettings}` (`src/model/labProjection.ts:34`), which would quietly drop any profile fields you store in `status`.
+   - **Fix:** add a separate field such as `iron profile: {sex, weight_kg, cycle?}` to `DietApplication`, built from `Scenario.person` in a single function. Don't store it in `status`.
+   - Every path should go through that one function: main timeline, previews, Applied diet, exports, reset, and the cache keys. The `activity.ts:309` cache key already includes sex; the nutrient caches need it plus a hash of the cycle settings.
+
+2. **Take menstrual iron from red cells, not transport.** Today losses come out of the 3 mg transport buffer, capped by `Math.min(transport, …)`. That has two problems:
+   - A heavy day can be partly clipped without warning.
+   - The stores refill transport on the same day, so ferritin drops instantly, in steps.
+
+   Bleeding loses red-cell iron. If you subtract `mL × Hb × 3.39 mg/g` from `redCellsMg`, the existing marrow-deficit term (`/14`, line 95) refills over about two weeks and draws on stores gradually. You get a realistic delay and mild dips with no smoothing code at all.
+   - Rough size: 30 mL is about 14 mg, against a ferritin of 40 µg/L × 8 mg ≈ 320 mg of stores. That's a dip of roughly 1–2 µg/L per cycle. Subtle already.
+   - Basal losses stay on transport as they are now.
+
+3. **Remove display smoothing completely.** With point 2 in place you don't need it. Smoothing would make the displayed ferritin disagree with the stores ledger and with the exports, and it's an extra assumption you'd have to defend. Keep day 0 exactly equal to the measured value, as it is now.
+
+4. **Rework the lab-projection cases.** The three hard-coded cases (`loss: 1.2 / 2.4 / 1`, line 33) replace losses completely. Two things to watch:
+   - The 2.4 case and `ironLosses:'higher'` may already stand in for menstrual loss. Combining either with the cycle double-counts.
+   - Change the cases to: basal loss × {0.8, 1, 1.3} **plus** cyclic loss at {low, representative, high} of the chosen category, kept separate.
+   - When the cycle is on, relabel "higher losses" as "other ongoing losses (e.g. GI, donation)", or turn it off. Say which in the method text.
+
+## P0: Scientific points
+
+5. **Changing basal loss to 0.014 mg/kg/day changes male output.** A 75 kg male drops from 1.2 to about 1.05 mg/day. That's defensible because it's sex-neutral per kg, which is the DRI approach, but it's a deliberate regression. Update the tests and the method text on purpose. Don't let it slip through.
+
+6. **Fix total loss per cycle by category; bleeding days only spread it out.** Otherwise, adding a bleeding day raises the loss, which is unexpected. Use a documented, front-loaded split (roughly 70% in the first three days) that sums exactly to the category total. Then a shorter cycle means more cycles per year and more loss, which is correct and worth showing.
+
+7. **Name the categories honestly.** 80 mL is the *threshold* for heavy bleeding in the DRI and clinical literature, not a midpoint. Call 15/30/80 "representative values", and give ranges, e.g. light 5–20, typical 20–60, heavy ≥80. Self-rated heaviness matches measured blood loss poorly, so the uncertainty band should cover the whole category range. For "heavy", add a neutral note that it's worth discussing with a clinician, without diagnosing anything.
+
+8. **Phase needs an anchor.** "Day 1 = bleeding start" is arbitrary unless you tie it to something. Ask for "days since last period started" (0 to length−1) on the scenario start date, which is also the lab date. Default to 0 and label it as an assumption. Phase changes when the first dip appears; it matters less over time.
+
+9. **Iron absorption already responds to stores** (`regulation`, line 38), so absorption will partly offset the loss. That's good. Mention it in the compact "diet in / daily losses / cycle loss" line so people don't read the ferritin curve as diet failure.
+
+## P1: Presets and body
+
+10. **Presets scale by `weightAt175`** (`src/model/composition.ts:14`) using a fat fraction tuned for males. Watch for:
+    - A female body at 12% fat. The 6% lower bound in `config.ts:17` is also implausible for females (essential fat is about 10–13%). Use a sex-specific minimum around 12% and stop the export claiming support below it.
+    - **Switching sex:** only remap to the matching female preset if the current values exactly match a preset (`matchingPreset` already does this check). Otherwise keep the custom values and show a short notice that the body values weren't changed.
+    - I'd skip the age/sex/BMI regression. It adds another model whose output looks like a measurement. Label the presets "illustrative example" and stop there.
+
+11. **Lean mass scaling the gain ceiling** is better than a flat sex multiplier. Keep the same food week, and show the energy-budget difference that comes from the sex term (+5 vs −161 kcal) so the shift in balance has a visible explanation.
+
+12. **Female SVG:** reuse the organ coordinates and change only the outline paths, so the iron-flow and tooltip anchors (`ironFlow.ts`, `anatomy.ts`) don't need two sets of coordinates. Add a browser test that checks the hit targets in both outlines.
+
+## P1: UX
+
+13. **Bleeding bands on a 3-year view** would mean about 39 bars, which is visual noise. Show bands only when the visible span is about 6 months or less. Beyond that, use small tick marks on the axis or nothing. Put them on the ferritin chart only, as you planned.
+
+14. **Navigation:** "Show inside a day" should keep the chosen day position. "Back to Over Time" should restore the long-term scroll and zoom. Both need explicit state, because the `main.ts:233` invalidation currently clears the remembered positions whenever inputs change. Decide whether a sex or cycle change should reset those positions. I'd keep the timeline position.
+
+15. **Lab range defaults:** `defaultLabRange` takes only marker and unit (`src/model/labs.ts:54`), so it needs age and sex too. Labels like "Default · Mayo adult female 18–50" should switch when the profile changes. Lab limits the user entered still win, as they do now through `effectiveLabRange`.
+
+16. **Intake comparisons:** make the old male 31–50 comparisons depend on age and sex. Note that the female RDA for iron (18 mg) already *includes* average menstrual loss, so you shouldn't adjust it again for the cycle settings.
+
+## Tests to add before UI work
+
+- Iron conservation: with the cycle on, `residualMg ≈ 0` over 3 years.
+- Total cyclic loss over N cycles equals category × N, whatever the number of bleeding days.
+- Cycle off, or male: output is identical except for the deliberate basal-loss change.
+- B12, folate and vitamin D: output is identical with the cycle on or off.
+- `atLimit` isn't triggered by a single heavy day when stores are adequate.
+- Sex toggle with custom body values: the values are kept.
+
+**Recommended order:** profile plumbing (1) → move the loss to red cells (2) → rework the lab cases (4) → tests → navigation → sex UI and presets → cycle UI and bands → SVG.

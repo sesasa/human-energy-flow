@@ -1,0 +1,72 @@
+# Revision 2 critique: images and code
+
+**Images I opened and looked at:** `sprint-early.png`, `walk-late.png`, `posterior.png` and `mobile.png`. I also read the three docs, `src/model/sprint.ts` and `src/visual/presentation.ts`. I did not open the anatomy SVG source, so anything I say about the illustration comes from the screenshots. I made no changes and ran nothing. The model values are relative teaching indices. I'm not treating any of them as validated.
+
+**What works:** The Back view is the most convincing image in the set: gluteals, hamstrings and calves are clearly the active muscles. In `posterior.png`, the ATP-source bar during the walk is short and aerobic only, which is correct and teaches well. The interval strip is proportional to time, and the extrapolation disclaimer is visible in the footer.
+
+## Improvements, most important first
+
+### 1. Muscle colour contradicts its own legend, and the Front view weakens the sprint story — **necessary**
+- The caption says "Muscle lightness follows PCr availability". What actually changes is the hue: orange in the sprint, teal-green in the walk. At rep 16, PCr is 37% (the lowest shown), yet the muscles look brighter and calmer than at rep 1, where PCr is 64%. In practice the colour shows phase, not PCr.
+  - **Fix:** Use one hue and change only its lightness with PCr. Or keep hue-by-phase, change the caption to say so, and stop calling it PCr.
+- The Front view during a sprint shows the quadriceps as three parallel capsules and the shins as rectangles. Behind them is a muddy brown block of overlapping viscera, and the heart looks too large for the chest.
+  - **Fix:** Default to **Back** during warm-up, intervals and cooldown, because that is where the main sprint muscles are. On Front, fade the viscera to about 15% opacity in sprint mode.
+  - Shaping the thigh muscles into tapered, overlapping forms would help believability. That part is polish.
+
+### 2. Bars disagree with their numbers after seeking — **necessary**
+`walk-late.png` and `posterior.png` show the same moment (16:09:10, rep 16, 26.0 s) with the same numbers, but the bars differ:
+
+| Row | Value shown | Bar in `walk-late` | Bar in `posterior` |
+|---|---|---|---|
+| Power | 59% | ≈82% | ≈59% |
+| PCr | 37% | ≈54% | ≈37% |
+
+In `walk-late`, the ATP-source bar also still shows a PCr segment and a glycolytic segment during a walk. That is the exact misconception the bar is meant to prevent. This looks like a CSS width transition caught mid-animation after a rep jump.
+- **Fix:** Snap bar widths on seek, rep click and phase change. Keep the transition short (≤150 ms) or remove it. Make the screenshot step wait for transitions to finish.
+
+### 3. Emphasis rules have collapsed, and there is still too much text — **necessary**
+In `sprintMetrics` during a late walk:
+- PCr and fatigue are `primary`.
+- Power, glycogen, oxygen and ATP are all `secondary`.
+
+So no row is quiet. ATP is `secondary` at all times, even though it reads 95% in every screenshot. Every value is also drawn in its accent colour, so nothing stands out. On top of that, each row has a small grey note in low contrast (e.g. "Relative to pre-session active pool").
+
+**Fix:**
+- Make `quiet` the default and allow at most one secondary row.
+- Always make ATP quiet, and shrink it to a single line ("ATP held · 95%").
+- Colour a value only when its row is emphasised.
+- Move the per-row notes into "Why this happens" or a tooltip.
+- Drop the extra text: the "Front / Back to explore" hint (the toggle already says it), "Maximal intent · variable output", and the PCr sparkline caption.
+
+In sprint mode, also consider collapsing the Day budget to a single line. That alone removes about 10 text lines from each screen.
+
+### 4. Oxygen and aerobic share rise too fast at the start of rep 1 — **necessary (model choice)**
+- `sprint-early.png` shows rep 1, 4 s in: "Oxygen support" is 52/100 and the aerobic segment is about 16% of ATP resynthesis.
+- The cause is the 11 s time constant for oxygen during the sprint (line 69 of `sprint.ts`). Oxygen goes from about 0.32 to 0.52 in 4 s.
+- The cited repeated-sprint studies describe a small aerobic contribution to the first 6 s sprint, with a clear rise across later sprints. Check the exact figures in Gaitanos/Bogdanis before encoding anything.
+- With such a fast start, the main story ("aerobic share grows across reps") barely shows. Fatigue onset could also be read as an oxygen shortfall.
+- **Fix:** Use a slower onset (a time constant of tens of seconds) and make rep 1 clearly mostly anaerobic. Add a check that the aerobic share in rep 1 is clearly smaller than in rep 10.
+- Keep stating that these are relative indices, and that reps 11–20 are extrapolated.
+
+### 5. Day timeline and mobile layout — **necessary**
+**Desktop:**
+- In the FULL DAY row, the slider track is only about 270 px wide on the left, while its labels (Morning → Sleep) spread across the rest of the row. The handle is not connected to the labels.
+- **Fix:** Use one track with labels placed by time.
+
+**Mobile:**
+- The day track is full width, but the labels are evenly spaced, not placed by time. At 16:09 the handle sits between "Lunch" and "Warm-up", while the session is in "Intervals".
+- The body is squeezed into a half-width column and its left arm is cut off at the screen edge, so the main illustration is smaller than the metrics.
+- **Fix:** Stack the body at full width, then the metrics. On mobile, show only the emphasised rows plus compact one-line rows for the rest.
+
+**Controls (both):**
+- "Sprint 1× · Walk 3×" next to a "Speed 1×" dropdown reads as two conflicting speeds. Merge them into one label.
+- "Go to intervals →" still shows while you're already in the intervals. Hide it there.
+
+## Optional polish
+- Label the countdown as time remaining ("26.0 s left"). Right now it's unclear whether it counts up or down.
+- The ATP value is almost flat (95% in every screenshot I saw). That's fine for a protected-ATP message. Just don't let it take a full bar.
+- The switch to "Same effort. Less power." is hard-coded at rep > 7. Tying it to a real decline in power (e.g. capacity below 85%) would make it follow the data.
+- The quadriceps are highlighted on Front during sprints. That's acceptable anatomically, but once Back is the default, show them as secondary.
+- Labels on the 20-block strip are small on mobile. Showing every fifth number would be enough.
+
+Items 1–3 most directly cover what was asked: believable anatomy, cleaner emphasis and less text. Item 4 is the one physiology change that affects the main teaching point.

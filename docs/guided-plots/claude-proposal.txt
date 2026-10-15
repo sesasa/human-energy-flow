@@ -1,0 +1,69 @@
+I've read the timeline, narration, chart and model code. Here is my review: the plan is sound, but a few parts of it would be scientifically misleading or wouldn't work reliably in browsers.
+
+## Scientific risks (from the model code)
+
+- **Day mode "teaching indices" repeat each other.** In `src/model/day.ts:135-137`, `recovery` is just `1 - fatigue`, and `fatMobilization` is `clamp(.75 - insulin*.5 + workout bonus)`. That is insulin flipped, not a separate signal. Plotting them next to insulin suggests three independent findings. Show only one of fatigue/recovery, and label fat mobilization as "derived from insulin signal" (or leave it out). The model has no "aerobic support" field, so don't invent one. `carbShare`/`fatShare` are real fields and could fill that slot. `contractionUptake` is a 0/1 flag, so draw it as a shaded band, not a line.
+- **Glucose and insulin share a 0–1 axis but are different quantities.** Label the axis "relative index (model)" with no mg/dL or µU/mL, and show index values in the legend without a % sign.
+- **Sprint ATP must use a fixed 0–100 % axis.** ATP is deliberately held near ~95 % (`sprint.ts:74`). Auto-scaling would blow that small drift up into an apparent crash, the opposite of what the model teaches.
+- **Fatigue and available power on one % axis look like mirror images.** They aren't. Use different line styles and say in the legend that they are separate indices.
+- **Pathway shares only make sense during sprints.** The flux values are "relative capacities, not mmol/s" (`sprint.ts:40`). During walks `pcrFlux = 0` even though PCr is being rebuilt aerobically, so a share plot would wrongly read "aerobic 100 %". Plot shares only for sprint windows and grey out the rest.
+- **Sprint lines need a different down-sampling method.** Picking every Nth sample (as `dayChart` does) smooths away the PCr dips. Keep the min and max per pixel column instead.
+- **Plotting absolute mass, lean and fat on one kg axis** squashes the fat changes against a ~70 kg body mass line. Plot changes from baseline in kg and put absolute values in the legend. Note that mass change = lean + fat change, so the narration shouldn't present them as three separate effects.
+- **Long-mode narration must follow the model's scope signals:**
+  - When a lab point is null, say "outside model scope" and never quote a number.
+  - Use the same "sensitivity, not a prediction interval" wording as `labProjection.ts:37,67`.
+  - Only narrate cycle events when `cycleActive` is true.
+  - Use `labTrend` thresholds for rising/falling claims.
+  - Respect `atLimit` and `sensitivityLimit.day`.
+- **Day narration must not mention body-composition change.** The current summary chapter wording ("repeated surplus can…") is the right pattern.
+
+## Speech and timing risks
+
+- **Pause/resume is unreliable.** Chrome on Linux often fails to resume after `pause()`, and long utterances can cut off after about 15 s. Split each script into sentences, cancel on pause, and restart the current sentence on resume. Treat native pause as an optional bonus.
+- **Stale callbacks.** After `cancel()`, `onend` may fire late or not at all. Tag each utterance with a generation counter and ignore callbacks from old ones. Add a watchdog (about 1.5× estimated duration) so a missing `onend` can't hold the timeline forever.
+- **Some voices aren't local.** Chrome's "Google …" voices have `localService = false` and send the text to Google. That breaks "no external TTS service". Prefer `localService` voices; if only remote ones exist, disclose that or ask first. Load voices on `voiceschanged`, because `getVoices()` is often empty on the first call.
+- **Sprint lines don't fit in a sprint.** A 3–10 s sprint holds about 8–20 spoken words. Say each rep's line during the preceding walk or warm-up. During the sprint, use silence or a two-word cue. Give events a `priority` so that at high speed low-priority events are dropped rather than queued. When the simulation is held waiting for speech, show a visible "narrating" state.
+- **Captions and screen readers.** While voice is on, the caption must not be an `aria-live` region, or screen-reader users hear everything twice.
+- **Rebuilding events.** `representativeDay` and diet changes replace `day`/`intense` (`main.ts:83-87`). Regenerate events whenever the model object changes, and cancel any speech in progress.
+
+## UX risks
+
+- **The Micronutrients rail item** has nothing to highlight in day or sprint mode. Disable it there or point it at the diet panel.
+- **Guided vs. manual selection needs a rule.** Suggested: a manual choice overrides the narration's emphasis until the user picks "Guided" again.
+- **Keyboard access.** One slider per card means many tab stops. Use one scrub control per card group, make the cards `aria-hidden` figures, and give each a text summary.
+- **Speed labels.** Remove the `1× / 3×` labels (`main.ts:219`) and the forced `min(1)` speed (`main.ts:239-240, 325`) together, so the speed control means the same thing in every mode.
+- **Layout.** Three columns, a vertical rail and a transport bar need a defined breakpoint. On narrow screens the rail should become a horizontal row of chips.
+
+## Suggested module boundaries
+
+```
+visual/plotCard.ts       – knows nothing about the model
+  PlotCardSpec { id, title, unit, domain: [lo,hi] | {auto, pad, include0?},
+                 x: {domain:[a,b], ticks}, series: SeriesSpec[],
+                 bands?: {x0,x1,label}[], markers?: {x,label}[] }
+  SeriesSpec   { id, label, color, dash?, values: Float32Array|(number|null)[],
+                 low?/high? (uncertainty), format:(v)=>string }
+  class PlotCard { setSpec(spec)       // rebuild only when spec identity changes
+                   setCursor(x)        // per frame: transform + legend text only
+                   setEmphasis(ids|null) }
+visual/plotGroup.ts      – shared x-mapping, single scrub slider → onSeek(masterPosition)
+visual/plotSpecs.ts      – adapters: daySpecs(day), sprintSpecs(intense), longSpecs(states, labs)
+engine/narrationEvents.ts – pure: (mode, model, scenario) → NarrationEvent[]
+  { id, start, end, sentences[], priority, systems[], emphasis: {card, series[]}[] }
+engine/director.ts       – state machine idle|speaking|holding|paused; inputs timeline
+                           position + speech events; outputs maxRate + speech commands
+engine/speech.ts         – SpeechPort interface; the browser version and a test stub
+```
+
+Key rules for these modules:
+- **Units:** the unit belongs to the card, not to each series. That makes mixing bpm, %, and grams on one card a type error.
+- **Gaps:** null values break the line, which lab projections need.
+- **Rendering:** draw paths once and update only the cursor per frame. Replace the `trace-host.innerHTML` swap at `main.ts:209`. Generalise `CompositionChart`'s pointer and keyboard handling rather than duplicating it.
+- **Sprint mapping:** sprint cards map session seconds back to the master timeline using `startMinute`.
+- **Timeline:** `Timeline` keeps only position and phase. The narration-length rate heuristic at `main.ts:330-331` moves into the director.
+
+## Tests to add
+
+- Check every event's `emphasis` against the series IDs in that mode's specs.
+- Run the director with the speech stub and a fake clock: seek during speech leaves no backlog, a missing `onend` triggers the watchdog, speed changes keep speech rate within about 0.8–1.25, and the sim never crosses an event boundary while speech is running.
+- Check that spec domains match the min/max of the model arrays, and that the ATP domain is fixed at 0–100.

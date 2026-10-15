@@ -1,0 +1,39 @@
+**Verdict: there are no substantive blockers left.** All ten items from my earlier review are fixed in the code, and the tests and screenshots show it. I didn't run anything, as the task asked, so the test results below come from the log files, not from me re-running the tests.
+
+## Test logs (`artifacts/refinement-4/`)
+- **`build.txt`:** `tsc --noEmit` and `vite build` both succeed.
+- **`model-tests.txt`:** 73 of 73 pass, including test #28, the new regression test for the trend headline.
+- **`viewer-browser.txt`, `micronutrient-browser.txt`, `status-browser.txt`:** each prints its "checks passed" line. These logs only contain that final line, with no timestamps, so I'm relying on them being from the current code. The new screenshots match what the tests assert, which supports that.
+
+## The ten fixes
+1. **Viewer suite:**
+   - The test now uses `seek(1439)` (`tests/viewer-browser.ts:25`), and the long-view scrubber uses `step='any'` (`src/main.ts:87`).
+   - The suite covers chart click, drag and keyboard (lines 29–32), the exact return position (line 39), Tuesday's real menu (line 38), and the one-off Monday meal staying isolated on day 8 (lines 41–44).
+   - It also covers 390px and 320px widths with no horizontal overflow (lines 45–47), and a real touch drag sent through the browser's devtools protocol (lines 49–52).
+2. **Trend wording:** `storeTrend` (`src/model/micronutrients.ts:121-123`) now returns Rising, Falling or Nearly steady.
+   - The panel headline looks at 365 days with a 3-point tolerance (`nutrientPanel.ts:81`). The store watch looks at 28 days with a 1-point tolerance (`main.ts:244`).
+   - The test checks that vitamin D going from 45 to 47 counts as "Nearly steady" (`micronutrients-expanded.test.ts:58-65`).
+3. **"No known low status":**
+   - The food experiments are always shown (`nutrientPanel.ts:65`).
+   - Changing any assumption away from its default switches the mode to Hypothetical (line 50), which brings back the clinical note. The browser test checks this (`micronutrients-browser.ts:14`).
+4. **Invalid lab entry:**
+   - The reading shows "Check this entry" and "Comparison paused…" (`nutrientPanel.ts:99`).
+   - Typed values survive switching markers (line 98), and Apply is blocked. Test: `micronutrients-browser.ts:34`.
+5. **Chart labels:**
+   - Axis labels are now HTML at 11px (`micronutrients.css:7`), with 11px captions (line 8).
+   - Both `micro-baseline.png` and `micro-mobile-trend.png` are readable, and the 390px and 320px overflow checks pass.
+6. **Meal label:** "Lunch · Tuesday" is now fully visible above the plate in `viewer-representative.png`.
+7. **Stray tooltip:** `viewer-sprint.png` is clean. The screenshot helper now moves the mouse away and waits 200ms first (`viewer-browser.ts:7`).
+8. **Four-pool watch:** `four-pool-watch.png` exists. It shows all four reserves at month 6, and the test asserts the four starting values and a two-column layout (`status-browser.ts:45-46`).
+9. **Button label:** it now reads "Apply & view over time" (`dietPanel.ts:77`), and it's visible in `micro-baseline.png`. I didn't check the README.
+10. **Portion cap:** `foodExperiments.ts` lines 12, 19 and 21 all use `min(target, food max)`. The test that repeat clicks don't stack is still there (`micronutrients-expanded.test.ts:46`).
+
+The optional mobile fixes also hold up in `viewer-mobile.png`: Front/Back sits at the left edge, and the "Resting" caption is below the figure rather than over it.
+
+## Minor leftovers (none block release)
+- **Small text:** a few labels are still 8–9px: the lab section eyebrow, "Additional tests" and the lab title tag (`micronutrients.css:1`). The main captions are fixed.
+- **Touch-page errors:** the separate touch page in the test (`viewer-browser.ts:49`) doesn't record page errors, so an error there would only show up as a failed assertion.
+- **Reset on "No known low status":** clicking it still resets all assumptions (`nutrientPanel.ts:37`). It's now labelled "Reference start & inputs", which makes the reset clear enough.
+- **Wrapped icon:** in `four-pool-watch.png`, the ⓘ after "Vitamin D availability" wraps onto its own line. This is cosmetic only.
+
+**Overall:** I now consider it finished. The behaviours I asked for have passing tests, the screenshots match the fixes, and the honesty I praised before is unchanged: lab results are kept separate from the model, and the trend wording no longer suggests a speed of change.

@@ -1,0 +1,61 @@
+# Claude review: Diet integration proposal
+
+I read the proposal, `day.ts`, `sprint.ts`, `longTerm.ts`, `config.ts` and `main.ts`. I made no edits and saw no screenshots. The direction is sound. Below are eight places where the current code will fight the plan, or where the plan is still ambiguous.
+
+### 1. The "selected day once" scope is unclear when more than one day is edited
+The plan keeps every weekday's edits separately, but also offers "selected day once". If the user edits Monday and Thursday and then picks "once for Thursday", what happens to Monday's edit? It could be dropped, kept as a draft, or applied as well. Pick one:
+- **Option A:** enable "once" only when exactly one day differs from the applied week.
+- **Option B (recommended):** rename it to "Apply edited days for one week, then resume". This avoids the edge case completely.
+
+Also state clearly what "previously applied week" means after an earlier "repeat week". The one-off sits on top of that week, not on top of the reference. Show the active scope as a small chip in the header so the long-term view never has a hidden state.
+
+### 2. The absorption kernel wraps around the day, so the 7-day engine needs a rewrite
+`absorption()` (`day.ts:45-55`) uses `(minute+360-meal.hour*60+1440)%1440` and normalizes over 1440 minutes. That means a late dinner's fat tail (scale 125, mean about 250 min) wraps back to 06:00 of the same day.
+
+- **Repeated week:** convolve over a 10,080-minute periodic axis.
+- **One-off override:** convolve over a linear axis. The overridden day's tail must spill into the next real weekday, which then continues from the perturbed glycogen state and does not snap back.
+
+Iterate until the state at Monday 06:00 settles (the same idea as the current 90-day loop at `day.ts:68-144`). Each iteration costs 7×, so cache the reference week.
+
+Gut-energy change is then simply eaten minus absorbed, which is non-zero only at day boundaries. One caution: `fatEnergyOxidized` is the closing term (`day.ts:135`), so `residual` is about 0 by construction. Don't present "ledgers close" as validation. Add one independent check, such as the weekly sum of daily ledgers equalling the 10,080-minute ledger.
+
+### 3. Changing to per-meal grams breaks several hard-coded assumptions
+- `validateScenario` requires fractions to sum to 1 (`config.ts:20`).
+- `absorption` multiplies `meal.fraction × s.nutrition[macro]`.
+- `main.ts:51` hard-codes `meals[0..2]` as Breakfast/Lunch/Dinner milestones.
+- `main.ts:79-81` builds scene facts from `fraction × nutrition`.
+
+Adding a snack shifts these indexes silently. Replace `meals[].fraction` with `meals[].foods[]`, derive P/C/F per meal, and build milestones and labels from the meal data. Also remove the protein/carb/fat inputs from the scenario form (`main.ts:174`), or they will overwrite the diet. Decide whether "Default settings" (`main.ts:172`) resets the diet; I suggest it doesn't, since Reset reference already does that.
+
+### 4. Energy accounting with CoFID needs explicit choices
+- **Carbohydrate units:** CoFID reports available carbohydrate as monosaccharide equivalents. At the current 4 kcal/g, energy comes out roughly 5–10% high. Use 3.75 kcal/g for monosaccharide equivalents, plus 2 kcal/g for AOAC fibre.
+- **Fibre path:** send fibre energy through a separate slow, colonic stream. It should not raise glucose or insulin.
+- **Missing data:** CoFID marks values as `N` (present but not measured) and `Tr` (trace). Treat `N` as missing, not zero. Show totals as "≥ x" when any part is missing, and Tr as about 0.
+- **Cooked weights:** use the CoFID cooked descriptors directly (for example "boiled") rather than applying raw-to-cooked yield factors.
+- **Same rules everywhere:** use one function for the TEF factors (`thermic_fractions`) in both `energyBudget` and the minute engine.
+
+### 5. Avoid false precision in nutrients and in body effects
+- Round kcal to the nearest 10 and grams to whole numbers. Give micronutrients two significant figures and coverage in coarse bands (<50%, 50–100%, ≥100% of UK RNI) shown as neutral bars.
+- Add one line saying food-table values vary by about ±10–20%.
+- On the body side, a 30 g carbohydrate edit moves glycogen only slightly, and a one-off +500 kcal day is about 0.06 kg of fat. That is invisible on the 3-year chart (`longTerm.ts`). Report the one-off as a single delta ("≈ +0.06 kg fat-equivalent, below measurement precision") rather than letting a flat curve look like "no effect".
+
+### 6. Sprint glycogen: avoid circularity and overstated effects
+- **Circularity:** `simulateIntenseDay` runs the sprints first (glycogen = 1, `sprint.ts:34`) and then the day. Because the day loop iterates to a periodic state, the session itself lowers the next morning's glycogen. Use a short fixed-point loop: sprint(g₀) → day → muscle at warm-up / `muscleCapacity` → sprint, for 2–3 passes with a convergence check.
+- **Accounting overlap:** sprint glycogen use (`kcal·carbShare·.75/4`) and day `desiredExerciseCarb·.75` (`day.ts:100-101`) already describe the same carbohydrate. Seed the sprint from the day model, then let the day model debit it. Don't subtract twice.
+- **Effect size:** the current `(0.8+0.2·glycogen)` is linear. Evidence suggests repeated short sprints are barely affected unless glycogen is quite low. Use a threshold shape: flat above about 40–50% availability, then a modest decline. Tell the user that ordinary diet edits won't visibly change sprint power. That is honest and teaches something.
+- **Which weekday:** specify which weekday the intense day and the "Healthy day" view represent. I'd use the currently selected weekday.
+
+### 7. Long-term model: per-weekday sampling and the protein rule
+- `simulateLongTerm` assumes Sunday is the light day (`(day-1)%7===6`) and starts the Push/Pull/Legs rotation there. Map day index to weekday explicitly so Monday's diet lines up with Monday's training.
+- `energyBudget(s,…)` reads `s.nutrition`. It needs a per-weekday nutrition argument.
+- `proteinAdequacy` is clamped at 1, so per-day sampling penalises a low-protein day without crediting high days. A weekly average does the reverse. Choose deliberately. I recommend a 7-day rolling average for this illustrative rule, documented in the science dialog.
+
+### 8. Keep the plate editor clean
+- **Layout:** have the weekday tabs, with a dot on edited days, show one meal card expanded at a time. The other three collapse to a mini-plate plus kcal/P. A full 2×2 of editors will feel like a spreadsheet.
+- **Plate vs list:** the plate shows the meal; the list beside it does the editing. +/- steps by natural portions (1 egg, 1 slice ≈ CoFID-referenced grams), and the gram field allows exact values.
+- **Drawing quantities:** scale discrete items by count, capped at about 6 with a "×8" label beyond. Scale continuous foods by area (√mass) with a cap, so 400 g rice doesn't overflow the plate.
+- **Small helpers:** "Copy day to…" and "Revert day" save many clicks.
+- **Unsaved drafts:** closing with unapplied edits should keep the draft and show "Draft · not applied" on the Diet button. No blocking confirmation is needed.
+- **Starting body:** presets currently apply instantly (`main.ts:164-167`). Moving them into the dialog as uncommitted fields is right; make sure the live preview (`updateFormComposition`) covers preset selection too.
+
+**Recommended order:** finalize the scope semantics (#1) and the data model (#3) before any UI work. Most of the remaining items follow from those two.

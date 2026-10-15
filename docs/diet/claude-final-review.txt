@@ -1,0 +1,52 @@
+I found nothing in the simulation that should block shipping, and the once/repeat logic holds up. The two blockers are in the UI: plate sizes don't faithfully show portion amounts, and on desktop the sticky Run bar likely hides focused inputs. I read every file listed plus `plates.ts`, `diet.css`, `energy.ts` and `foods.json`, and looked at all four screenshots. I didn't edit or run anything, so the line-by-line checks below are from reading the code.
+
+## Findings, in priority order
+
+**Blockers**
+
+1. **Plate sizes don't reflect portions, and food looks too small.** Yes, the food is too small, but the bigger problem is how size is worked out (`src/visual/plates.ts:192`). Size is the slot radius × `clamp(.82·√(grams/typical), .45, 1.08)`, and the slot radius depends on how many foods are on the plate (`LAYOUTS`, line 21). The result:
+   - **Same portion, different size.** 100 g chicken alone draws at scale 1.40. Next to rice and broccoli it draws at 0.85. Adding an unrelated food shrinks everything else.
+   - **Sizes jump when the order changes.** Foods are sorted by relative weight to pick slots, so pushing one food past another swaps their slots and both sizes jump.
+   - **Edits stop showing.** Above about 1.73× the typical serving the size stops growing (rice above ~430 g, potato above ~520 g). Below about 0.3× it stops shrinking. The oats bowl stops growing above ~99 g (line 157).
+   - **Too small overall.** 300 g of cooked rice draws as a mound about 35 units wide inside an 86-unit well. In `diet-lunch.png` the food covers roughly a quarter of the well. The 68 px mini plates are mostly background.
+
+   Fix: use one fixed scale for every layout (drawn area proportional to grams, same for all meals), let the layout set position only, and set the base so a typical serving fills about 1.0–1.15 of the unit size. Only clamp to keep food inside the well. For the mini plates, crop the viewBox to the plate (e.g. `30 25 260 190`). This also makes the footnote "Illustrations show relative amounts" true.
+
+2. **The sticky Run bar likely hides focused inputs and content on desktop.** `.diet-apply` is `position:sticky; bottom:0` and about 190 px tall, inside the scrolling dialog. In both desktop screenshots the editor is cut off at y≈805:
+   - The meal's kcal and macros line is hidden.
+   - The Salt row is cut off, and "Add a food" is hidden on lunch.
+   - "Across the week" is only reachable by scrolling.
+
+   When you Tab into a food row near the bottom, the browser scrolls it to the bottom edge, which puts it under the bar (WCAG 2.4.11). This is likely; confirm by tabbing through the lunch rows. Fix: add `scroll-padding-bottom` of about 200 px to `#diet-dialog`, and consider making the bar shorter by moving the comparison line into it.
+
+**Should fix**
+
+3. **Missing-data values (null) entered where the true value is zero create false "≥" markers.** `foods.json` has `fiber_g: null` for beef and yogurt (both have no fibre). Plain yogurt is in every reference day's snack, so Fibre shows "≥ 38 g" every day. EPA+DHA is null for every plant food and for salt (truly zero), and salt's ALA is null too. So EPA+DHA and ALA almost always show "≥" or "Incomplete data". A marker that is always on tells the user nothing. Set these to 0 and keep null only for real unknowns (walnut and chocolate fibre).
+
+4. **The weekly micronutrient average only looks at Monday's nutrients** (`src/model/diet.ts:32`). It builds the list of nutrients from `days[0]` only. To reproduce: set every Monday portion to 0. Every row in "Across the week" then shows 0 and "Low", even though six days still have food. Fix: take the set of nutrients from all days.
+
+5. **"Add a food" loses keyboard focus.** `diet-add-food.onchange` → `renderEditor()` (`src/visual/dietPanel.ts:41`) replaces the focused select, so focus drops to the dialog. Move focus to the new row's grams input. The same handler also renames the meal to "Your lunch" for good, even if the added food is later set to 0.
+
+**Nice to have**
+
+6. **Meal tabs are not in time order.** They show Breakfast 08, Lunch 13, Dinner 19, Snack 15 (visible in all screenshots). The order comes from the data (`src/model/diet.ts:41-47`). Sort by hour when rendering, or reorder the data.
+
+7. **"Edited" and "draft" mean different things.** The day dot means "differs from reference", while the header's "Draft · not applied" means "differs from what was applied". "Revert this day" goes back to the reference, not to the applied week. After applying an edited week there is no way to discard just a draft. Also, `aria-label` on the bare `<i>` dot is not announced by screen readers (`src/visual/dietPanel.ts:19`). Suggestion: "Revert to applied" plus a visually hidden text label.
+
+8. **Reference labels and mobile layout.**
+   - The panel says "reference values for a man aged 31–50", but EPA+DHA 250 mg is an EFSA value and sodium 2300 mg is the US chronic-disease limit (CDRR, an upper limit rather than an RDA). Age can be changed in the scenario, but the label stays fixed. Say "mixed US/EFSA references" and link them.
+   - In `diet-mobile.png` the "Carbohydrate" label runs into "Fat"; use "Carbs" or a 3+2 grid.
+   - The cameo tooltip shows raw food ids such as `brown-rice: 300 g` (`src/main.ts:165`).
+
+## What works (checked against the code)
+- **Steady 7-day loop with a one-off day:** The 7-day loop treats the Sunday weekday as a light day, and the one-off day is handled after it with nothing wrapping back into the previous day. Day 0 meals' absorption ends by minute 3420, inside the 10080-minute week, so subtracting it without wrapping is exact. The previous week's tail still carries into day 0 as it should.
+- **One-day scope:** It applies only to the selected day. `pending()` correctly keeps other edited days as drafts, and the scope note says so.
+- **Long-term view:**
+  - `nutritionDay` puts the one-off day only at index 0.
+  - The rolling 7-day protein average handles the days before the start correctly.
+  - The light-day weekday check in `src/main.ts:78` matches `src/model/longTerm.ts:17`.
+  - There is no daily-max sprint in the long-term projection.
+- **Sunday activity flag:** `scenario` keeps the base `resistance_training` flag, and only `w.scenarios[0]` and the scenes use the light-day copy. The day budget (2,603 in / 2,621 out) uses the light-day version consistently.
+- **Energy numbers:** Carbohydrate at 3.75 kcal/g and fibre at 2 kcal/g are applied in `nutritionCalories` and in the day ledger. The weekly reference shows 2,630 kcal and 134 g protein, which matches ~2627.
+- **Intense day:** It uses `options[0]`, so it starts from the same state and absorption as the selected day.
+- **UI:** Tab keyboard navigation, the error path in `apply`, the non-sticky apply bar on mobile, and the vitamin D/sunlight and sodium-as-a-limit wording all work as intended.

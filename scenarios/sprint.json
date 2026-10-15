@@ -1,0 +1,16 @@
+{
+  "repetitions": 20,
+  "sprint_seconds": 6,
+  "walk_seconds": 30,
+  "start_hour": 16,
+  "warmup_minutes": 8,
+  "cooldown_minutes": 5,
+  "peak_power_w": 900,
+  "effective_efficiency": 0.25,
+  "active_glycogen_fraction": 0.25,
+  "pcr_recovery_tau_seconds": 25,
+  "walking_recovery_penalty": 1.2,
+  "glycolytic_decline_seconds": 80,
+  "hr_ceiling_bpm": 188,
+  "integration_step_seconds": 0.1
+}

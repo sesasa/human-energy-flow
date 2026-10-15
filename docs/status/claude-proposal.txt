@@ -1,0 +1,46 @@
+I read the proposal and the six files, plus `data/foods.json`. I made no edits. Here are eight pitfalls, most important first.
+
+### 1. Define "100%" as the reference diet's steady state, then test it
+- **Problem:** If losses are a fixed ~1 mg/day and the 600 mg / 2500 µg stores are fixed separately, the "reference" start will slowly drift up or down even on the reference diet. That would look like a forecast.
+- **Fix:** Tune regulated iron absorption at full stores, and the B12 daily loss fraction, so that reference status plus the reference diet stays nearly flat. A test target: within about ±2% over 1095 days.
+- **Conservation check:** Add a daily ledger like `day.ts:143-146`. Total iron (transport + marrow + red cells + tissue + store) minus its starting value should equal absorbed minus lost, with the leftover difference close to zero. Do the same for B12.
+
+### 2. Daily steps vs. fast and delayed iron pools
+- **Transport pool:** It holds only a few mg but turns over many times a day. Simulated in one-day steps, it will overshoot or go negative. Treat it as instant pass-through each day, not as a pool with its own dynamics.
+- **Marrow delay:** Use a fixed 7-slot first-in-first-out queue. A smooth exponential delay doesn't give a real ~7-day lag.
+- **Red cells:** 1/120 of red-cell iron breaks down each day (~20 mg). It goes back into the recycling path, not out of the body. Show this ~20 mg/day recycling flow next to the ~1 mg/day absorbed and lost, so the flow diagram makes the point that almost all iron is recycled.
+
+### 3. Realistic timelines and what happens when stores run out
+- **Refill limit:** Absorption regulation must cap net gain at roughly 1–2 mg/day at most. Refilling 42% → 100% means about 350 mg, which should take many months to over a year. Check the 4/12/26/52-week milestones against this, and make sure the regulation curve can't refill stores in weeks.
+- **Stores at zero:** A low starting status plus a low-iron diet can drain the store. You need a clear rule for that case. I'd follow the `atLimit` pattern in `longTerm.ts:31-33`: stop with "Below modeled range". Don't let red-cell iron fall, because that would show anemia, which the proposal rules out.
+
+### 4. Diet-scope and draft handling in the existing code
+- **Reset:** `dietPanel.ts:68` builds a brand-new `{week, startDay}`. If status is stored on `DietApplication`, this reset silently drops it. Carry the current status forward.
+- **Pending and Discard:** `pending()` (`:17`) and Discard (`:67`) only compare meals. Include the status draft in both.
+- **Apply paths:** Reset applies immediately, so decide whether it also commits a pending status draft.
+- **Export:** `main.ts:189` should export both the applied status and the draft status.
+- **One-off days:** A one-off day (`dietDayAt`, `diet.ts:58`) has almost no effect on a 1-year iron chart. Say "a single day barely changes stores" instead of drawing two identical lines.
+- **Suggestions vs. scope:** "Two days/week" suggestions don't fit the "Apply only to this simulated day" scope. They would leave one weekday applied and the other stuck in draft without telling the user. Disable such suggestions in day scope, or explain this inline.
+
+### 5. Food-data assumptions
+- **Missing fields:** `foods.json` has no heme, phytate or calcium-inhibitor fields. Put the category map (beef/chicken/salmon/mackerel heme share; oats/brown-rice/bread/lentils/nuts phytate) in its own documented assumptions file. Also decide how spinach and dairy are handled.
+- **Missing values:** `iron_mg`/`b12_ug` can be `null`. Show a "≥" marker the way `dietPanel.ts:29-31` does.
+- **Vitamin C:** The same-meal effect has to be calculated per meal (`totals(m.foods)`), not from `dayTotals`, because daily totals lose which foods were eaten together.
+- **Suggestion preview:** Show the change in absorbed iron, not intake. Lentils are high in phytate, so "add lentils" partly cancels itself in your own model. The preview should show that honestly.
+
+### 6. Day numbering and the fixed baseline
+- **Day numbering:** `longTerm` stores the result after eating food from day d-1 as day d. But `main.ts:77-78` labels day d with `dietDayAt(elapsedDay)`. Pick one convention for the iron timeline and match `longStates`. Otherwise the "intake today" vs "reserves now" labels will be off by one day.
+- **Daily view:** Hold reserves fixed during the day. Animating a change of about 0.2%/day would suggest false precision.
+- **Sex label:** `scenario.person.sex` is shown on screen (`main.ts:104`), but the model uses fixed ~1 mg/day losses. Label the losses plainly (e.g., "reference adult; menstrual losses not modeled") so the model doesn't look personalized.
+
+### 7. Tooltips and long-term metric rows
+- **Native tooltip:** `main.ts:68` sets `el.title = r.note` and `aria-description`. Remove both, or the native tooltip will show alongside the new popup.
+- **Trend field:** Add `trend` (and maybe `tooltip`) to the `Metric` interface (`presentation.ts:29`). For day mode, a short look-ahead like `sampleDay(position+15)` is enough to get the direction.
+- **Popup updates:** Refresh the open popup at most about once a second, and don't make it `aria-live`. Otherwise screen readers get flooded at the 40 ms render rate.
+- **Long-term rows:** The fat row (`main.ts:115`) shows % but no kg change. The lean row shows only the gain. Use one consistent pattern for all rows: "X kg · ±Y kg from start", plus fat %. Mark values as frozen when `atLimit` is set.
+
+### 8. Keep the UI simple
+- **Body stores panel:** Hide it while everything is at reference status. Show it only when a low status is selected; reference stays viewable in the Diet dialog. The right panel is already crowded.
+- **Chart length:** The comparison chart covers 1 year, but the timeline runs 1095 days. Either chart 3 years, or clearly say the chart stops at year 1 while the panel keeps following the timeline.
+- **Flow diagram:** Draw it with fixed proportional widths for the selected day. Don't animate particles every frame.
+- **Animated figure:** It replaces `#activity-tag`, so keep a visually hidden text label for screen readers. Mark the figure `aria-hidden`, respect `prefers-reduced-motion`, and keep the existing sprint/long-term label states.

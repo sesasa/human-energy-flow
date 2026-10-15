@@ -1,0 +1,30 @@
+I've written `src/visual/activity.ts` and touched no other file. **I haven't type-checked, tested or looked at it in a browser**, because I had no shell here. Before relying on it, run `tsc --noEmit` and check it visually once `main.ts` is wired up.
+
+**What it does**
+- `ActivityView` takes `constructor(host)` and `update(activity, simulationSeconds, person, playing, reducedMotion)`, as specified.
+- It sets `host.dataset.activity`, and also `data-motion` (playing / paused / reduced) on the SVG.
+- The scene is an inline SVG, `viewBox="0 0 156 116"`, drawn at 150×112. It has `role="img"`, a `<title>` and an `aria-label` (e.g. "Running", "Eating a meal"). There's a rounded frame and a floor, and no visible activity text.
+- It's a side-view figure in the app's palette: hair, ear, eye with blinking, brow, nose, mouth, blush, hands and laced shoes. The outfit (sage tee, ochre shorts, cream shoes) is the same in every scene. A ponytail appears when `person.sex` is female.
+
+**Poses**
+- **Rest:** standing, breathing, a slight sway.
+- **Meal:** seated at a table; the spoon goes from the plate to the mouth, with chewing and a glass of water.
+- **Work:** seated at a laptop, typing, with a mug.
+- **Sleep:** in bed on a pillow, eyes closed, with the blanket and chest rising as it breathes.
+- **Run and sprint:** a running cycle with flight bob and arm swing. Sprint is faster, takes a longer stride, leans forward more and adds sweat and flush.
+- **Resistance:** a two-arm dumbbell curl, with a strained face and a slight lean back at the top.
+- **Warm-up, walk and cooldown:** walking at three slower speeds.
+- **Recovery:** seated calmly with a towel round the neck and a water bottle on the thigh.
+- Floor marks scroll during walking and running, so the figure looks like it's moving forward.
+
+**Timing and performance**
+- Every pose is worked out from `simulationSeconds` alone, so seeking always gives the same frame and a paused clock freezes the scene. There are no CSS animations.
+- With reduced motion, each activity shows one fixed pose (e.g. mid-stride, spoon at the mouth, top of the curl) with no breathing or blinking.
+- All nodes are built once. Each frame only changes attributes, and a value is written only when it has changed. Props are shown or hidden only when the activity changes. There's no `innerHTML`.
+
+**Body size**
+- Torso and limb width come from `bodyComposition()`, scaled modestly by BMI and fat fraction. It doesn't assume anything about muscle or fitness.
+
+**Two things to check when you wire it in**
+- No CSS positions the scene in the upper-right of the anatomy stage, because CSS was off-limits. Whoever edits `main.ts` or the stylesheet will need to place the host element.
+- `update()` only uses `simulationSeconds` for timing. If you pass the wall-clock `visualSeconds`, the motion will stay smooth but won't follow scrubbing exactly. For fully deterministic seeking, pass a value derived from the timeline position.

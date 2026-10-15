@@ -1,0 +1,23 @@
+**No concrete blocker remains.** Each fix is in the current files as you described. I only read files: I didn't edit anything or re-run the tests, so the passing results are your report, not something I re-checked.
+
+1. **Diet draft, label and Discard (`dietPanel.ts`)**
+   - When the panel opens, the draft is built from `initial.week` with the actual one-day override placed on `startDay` (`src/visual/dietPanel.ts:19`, `:24`).
+   - Discard rebuilds the same thing from the applied state (`app.week`, the override, `startDay`, the scope setting, status, micronutrient context and template). It also clears the per-template drafts (`:92`).
+   - The draft counts as pending only when it differs from the applied week plus override (`:32`). So after a single-day Run, unapplied edits on other days stay pending and aren't treated as applied.
+   - The "Selected day applied · other days are drafts" label appears only when the selected day, template, status and context all match what's applied and there are no errors (`:33`).
+   - `tests/templates-browser.ts:24` checks that label, then Discard, then that Discard is disabled and the status shows "this day only".
+
+2. **Weekly recovery support (`dietSimulation.ts`)**
+   - `recoveryFoodSupport` is calculated once from the repeating week's average protein and energy (`src/model/dietSimulation.ts:33`).
+   - It's passed through `DayOptions` both in the warm-up loop and on the one-off-day path (`:37`, `:41`, `:48`), and `day.ts:68` uses it, falling back to the per-day value only when it isn't supplied.
+   - `tests/diet-templates.test.ts:73-77` checks that:
+     - every Healthy day gets the same value, about 1;
+     - Low-variety is below 0.4;
+     - a Low-variety one-day override keeps Healthy's weekly support while absorbed amino acids still change.
+   - `MODEL.md:5` says the promise covers Healthy's food data and menus, not identical outputs, and that the general rules apply to every template with no exemption.
+
+3. **Permanent scope stop (`longTerm.ts`)**
+   - Once a day is marked `atLimit`, every later day copies it forward unchanged (`src/model/longTerm.ts:19`), so a later deficit can't restart the projection.
+   - The test (`tests/diet-templates.test.ts:69-72`) starts at 44.999% body fat on Fast-food, empties the next day, and checks that `atLimit`, weight and residual stay fixed from day 1 onward. The test helper uses `startDay:0`, so the empty day really is the next projected day.
+
+4. **Prose and mobile radios:** I didn't look for the specific spacing fix. Keeping full template names in the stacked mobile radio options is fine; it was only an optional suggestion.

@@ -1,0 +1,51 @@
+I read the proposal, `src/model/micronutrients.ts` and `src/visual/nutrientPanel.ts`. I made no edits.
+
+## Recommended workflow (Micronutrients tab)
+
+**Layout from top to bottom:**
+1. **Nutrient chip row.** Iron · B12 · Vitamin D · Folate are modelled. Ca · Mg · Zn sit after a divider, in a muted style labelled "intake + lab only". Selecting a chip shows exactly one card.
+2. **Card header: "Starting point".** A segmented control for intent: *No known low status* (the default) / *Lab result* / *Hypothetical*. Choosing *Lab result* opens a small lab card. It records the analyte, value, unit and the lab's low/high limits, and gives a one-word verdict (below / within / above the supplied range).
+   - The start-state control (*Reference* / *Low, illustrative*) is always separate, and the user must choose it.
+   - A low lab result may highlight the "Low" option, but it never selects it.
+3. **Hero chart.** It shows the baseline (the applied diet, solid grey) and the draft (nutrient colour), with three labelled points at 3, 6 and 12 months. Until something changes, only the baseline line appears.
+4. **Two or three food cards** that toggle on and off. Each shows a plate, the change in kcal and macros, and the change in absorption. Turning a card on edits the draft only.
+5. **Sticky bar:** "Draft differs from applied diet · +85 kcal/day · Apply / Discard". The bar appears only when the draft differs from the applied diet.
+
+**Inside a Day / Over Time:** use a two-tab toggle above the viewer. Clicking a point on the composition chart offers a "View this day →" chip. The Day view label reads something like *"Representative Tuesday · menu in effect at week 37 · body state at day 254"*, followed by a "← Back to Over time" link.
+
+## Prioritized recommendations / pitfalls
+
+1. **Keep lab results and model state apart in the types.** Store a `LabObservation` exactly as entered (value, unit, range limits, optional date) in a separate store that `initial()` can't import. Only `NutrientSettings` can set the starting state. Allow ranges with only one limit (for example ferritin "> 30"). If the range unit differs from the result unit, don't interpret the result; never convert units automatically.
+
+2. **Units are the main correctness risk.** Each test is reported in more than one unit:
+   - B12: pg/mL or pmol/L
+   - 25-OH D: ng/mL or nmol/L (×2.496)
+   - folate: ng/mL or nmol/L (×2.266)
+   - calcium: mg/dL or mmol/L
+   - magnesium: mg/dL, mmol/L or mEq/L
+   - ferritin: ng/mL is the same as µg/L
+
+   Offer a fixed list of units per test and show the chosen unit next to the range limits.
+
+3. **The baseline must be the applied diet, not `cloneDiet()`.** Today `nutrientPanel.ts:36` simulates the Reference Diet as the comparison line. Instead, cache the baseline simulation by (applied week, status, assumptions) and recompute it only when the user clicks Apply or changes the status. Otherwise the "before" line moves while they edit. A status change should rebuild both lines.
+
+4. **Food suggestions should describe a target state, not repeat edits.** Generalise `withIronPair` into rules like "ensure meal M has at least X g of food F, and reduce rice/oil to free up the energy". Check whether a suggestion is already applied by testing that rule, not with `JSON.stringify` equality. When two suggestions trim the same rice portion, combine them in a fixed order so toggling A then B gives the same result as B then A. Show the combined change, and say plainly when no food can recover the store (reduced absorption, higher losses, no non-food vitamin D).
+
+5. **Read official sources before choosing any coefficients.**
+   - **Vitamin D:** the non-food source should be a categorical assumption (none / some / regular), not a sun calculator. Food values are often missing, and UK and US fortification differ. Model availability with a slow pool (circulating half-life of weeks, longer adipose buffering), shown as an index, never as an ng/mL value.
+   - **Folate:** food folate and folic acid count differently (DFE), and the pool turns over in months. Serum folate mostly reflects recent intake, so "within range" shouldn't imply full stores.
+
+6. **Interpretation copy.** Per-test caveats go in the details section:
+   - Ferritin rises with inflammation.
+   - B12 can look normal while tissue status is low.
+   - For calcium, total serum calcium depends on albumin.
+   - Magnesium in serum is under 1% of the body's total.
+   - Zinc varies with fasting, time of day and inflammation.
+
+   Ca, Mg and Zn get no curve and no "below range, so eat more X" link.
+
+7. **Use one timeline value for everything.** Playback, chart scrubbing and the Day view should all read a single float `timelineDay` held in `main.ts`. Scrubbing pauses playback. The Day view stops at the end of the day and never moves on into years. Weekday = `(startDay + floor(day)) % 7`, and the menu must account for `once` versus repeat.
+   - Make the chart scrubber accessible: `role="slider"` with `aria-valuetext`, arrow keys for ±1 day and Shift for ±1 week, plus pointer capture for touch.
+   - In "%" mode the y-axis should say "% body fat"; "lean" should be labelled as fat-free mass if that's what the model computes.
+
+8. **Keep the layout stable across scenes.** Give each scene's primary metrics (on the right) the same four fixed slots so the layout doesn't jump. Left-side metrics should be small and in the same order every time. Put the Front/Back toggle in the viewer's top-left as an overlay so it takes no layout space. Enlarge the body by shrinking the empty space under it rather than shrinking the side columns. The activity label ("Eating breakfast") should sit under the character as a small caps pill, not as text inside the SVG that could overlap the pose.

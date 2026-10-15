@@ -1,0 +1,109 @@
+I read the files and changed nothing. Your approach is sound. The main things to change are where the coffee time sits, and keeping all coffee code separate from `simulateDay`.
+
+## Architecture: keep it separate from the existing day model
+
+- **New pure module `src/model/caffeine.ts`.** Do not add a new `Activity` and do not put coffee inside `simulateDay` (`src/model/day.ts:60`).
+  - The schedule drives energy, heart rate and the ledger. `simulateDay` also repeats the day up to 90 times until it settles. Running coffee through that loop would quietly turn a one-off cup into a daily habit.
+  - Suggested functions: `caffeineDay(event, person) → {mg[1441], low[], high[], felt[], pressure[]}` and `sampleCaffeine(curve, minute)`.
+- **State:** store `coffee = {enabled, hour, mg}` in `main.ts`, next to `dietApplication`. Include it in Export JSON. Do not add it to `Scenario`, which would affect `validateScenario` and the long-term view.
+  - Changing it must clear `chartKey` and `narrationKey`. Otherwise `updatePlots` and `updateNarrationTrack` keep the old cards and cues (`main.ts:121-133`).
+- **Scope:** the day phase only, whichever diet template is active (the tab reads "Daily routine" for non-Healthy templates, `main.ts:213`). `dayPlotSpecs` is also used for `intense-day`, so pass an option and leave the coffee cards out of the sprint day. Long-term, sprint, the energy budget and the food ledger stay unchanged. Black coffee is about 2 kcal, so leave it out.
+
+## Timing clash with breakfast
+
+Breakfast is at 08:00. The meal story lasts 90 minutes (`main.ts:180`, ends 09:30), and the breakfast storage cue runs 08:58–09:40. A 09:00 coffee would cut that cue short (`orderedCues` truncates the earlier cue) and fight the meal story.
+
+- **Recommendation:** default to **09:30 · ~90 mg**, "a cup before focused work". The 10:00 mental-work window then gives a natural behaviour link.
+- If you prefer 09:00, add an explicit rule that the coffee story takes over from the meal story for its first 30 minutes.
+- **Time choices:** offer only awake, non-exercise minutes in 30-minute steps (about 07:00 up to bedtime − 30 min). Late slots are allowed because they show the sleep caution.
+
+## Model: what is known vs. what is illustrative
+
+**Known mechanisms (can be stated as fact, with sources):**
+- Oral absorption is almost complete (F ≈ 1), with a peak at roughly 30–60 min (range about 15–120).
+- About 95% is cleared by the liver enzyme CYP1A2. The main product is paraxanthine, which is also active.
+- In healthy adults the elimination half-life is usually about 3–7 h, wider across individuals.
+- Caffeine works as a competitive antagonist at adenosine A1 and A2A receptors. Adenosine still builds up during waking; caffeine hides its signal and does not remove it or pay back sleep debt.
+- Effects depend on dose. Tolerance is real. In regular users, part of the felt benefit is relief of overnight withdrawal.
+- Caffeine taken close to bedtime can lengthen time to fall asleep and reduce deep sleep. Sensitivity varies.
+
+**Illustrative parameters (label them that way):**
+- Absorption rate ka ≈ 4/h, giving a peak at about 50 min.
+- Half-life 5 h, with a band from the 3 h and 7 h curves.
+- The alerting index uses a saturating curve, E = C/(C+EC50), with EC50 picked for teaching purposes.
+- Sleep pressure is a simple "Process S" curve: it rises toward a ceiling while awake and falls during sleep.
+- Felt sleepiness = S·(1 − k·E). This keeps it at or below S and returns it to S as caffeine clears, with no invented "crash".
+
+**Plot units:** plot **mg remaining in the body** from the one-compartment absorption/elimination formula (Bateman). Do not plot a plasma concentration, since that needs a volume of distribution and adds a second assumption.
+
+**Variability to mention as text only:** pregnancy (much longer half-life), oral contraceptives (about doubles it), smoking (shortens it), drugs that inhibit CYP1A2 such as fluvoxamine, liver disease, genetics, and how much caffeine is actually in a cup (roughly 60–200 mg).
+
+**Do not change:** glucose/insulin, glycogen, heart rate, fuel mix, recovery, energy expenditure, sleep timing or sleep quality.
+
+## Plots: two cards with `systems:['brain']`
+
+1. **Caffeine in body (mg).**
+   - Solid line: the current event, with the half-life band (PlotPoint `low/high` already works for lab plots).
+   - Shaded band from sleep start.
+   - Faint "Reference cup · 09:30 · 90 mg" line, shown only when the settings differ from the reference. This one line covers the dose, time and no-coffee comparisons. With coffee off, the main line is flat at zero and the reference still shows.
+   - Readout: `46 mg · 51% of cup` plus `band 33–60 mg`.
+   - Note: "Halves about every ~5 h (3–7 h in adults)."
+2. **Sleep pressure & alertness (illustrative 0–100).**
+   - Dashed line: *Sleep pressure (adenosine signal)*. It is identical with and without coffee.
+   - Solid line: *Felt sleepiness*.
+   - The gap between them teaches "masks, doesn't remove". With coffee off the two lines coincide, so that is the no-coffee comparison.
+
+That brings the right column to 7 cards. That's acceptable because the system rail and narration emphasis already pick what gets attention.
+
+## Centre and left panels
+
+- **Controls:** one compact row under playback: `☕ Coffee [on/off] · time [select] · dose [Small ~45 | Cup ~90 | Large ~180 mg]`. Changing a setting keeps the current timeline position. Do not add new navigation, the Inside this day shortcut, or the Guided button.
+- **Drinking animation:** an overlay on `ActivityView.update` (e.g. `overlay:'coffee'`) for about 10 min. It shows a mug and sipping pose over whatever is scheduled (rest/work/meal; the work scene already has a mug). Caption: "Drinking black coffee · ~90 mg caffeine". With reduced motion, show a static mug.
+- **Anatomy emphasis by stage (story override, same pattern as meals):**
+  - 0–15 min: digestion, "Coffee arriving".
+  - 15–60 min: blood → brain, "Absorbed; reaches the brain".
+  - 1–3 h: brain, "Blocking adenosine receptors".
+  - Fading period: briefly emphasise the liver, "Liver clears caffeine (CYP1A2)".
+- **Left panel effect window, kept short:** "Onset ~15–45 min · strongest ~30–90 min · noticeable for a few hours · traces at bedtime: X mg."
+  - Behaviour, described in direction only: more alert, faster simple reaction and vigilance, and possibly jittery or anxious at larger doses.
+  - No percentages.
+
+## Narration
+
+- **Cues:** `coffee-drink` (t → t+12), `coffee-brain` (t+12 → t+35, system `brain`, cards caffeine and alertness).
+- **Mental work:** if caffeine is above a threshold, add one sentence to the existing `mental-work` cue.
+- **Sleep:** add a residual sentence to the existing `sleep` cue, using the computed mg from the model.
+- **Optional `coffee-fading` cue:** place it with a small helper that finds a free gap (`freeSlot`) at least 3 h after drinking, so it doesn't cut into the lunch cues.
+
+## Tests to add
+
+- **Caffeine curve:**
+  - Zero before drinking.
+  - Mass balance: absorbed + remaining + eliminated = dose, within 1e-6.
+  - Peak at 30–90 min.
+  - After absorption, the ratio over one half-life ≈ 0.5.
+  - Band ordered low ≤ mid ≤ high.
+  - Doubling the dose doubles the curve; values never negative.
+  - A later time leaves more caffeine at sleep start (09:30 vs 16:00).
+- **Isolation (most important):**
+  - `simulateDay` states, ledger and budget are identical with coffee on/off and at any dose or time.
+  - The long-term and sprint outputs don't change.
+- **Effect model:**
+  - Sleep pressure is identical with and without coffee.
+  - Felt ≤ pressure at all times.
+  - Felt returns to within ε of pressure as caffeine → 0, with no overshoot.
+  - E rises with concentration and stays below 1.
+- **Narration:**
+  - Coffee cues exist only when coffee is on, and none fall in sleep or exercise.
+  - Existing cues are not cut below ~8 min.
+  - A text lint forbids "removes/clears adenosine", "repay", "fat", "metabolism boost", "dopamine", "cortisol" and "heart rate rises".
+- **Browser:**
+  - Controls change the plots without moving the scrubber, and work with keyboard and on mobile (followed plot).
+  - Reduced motion shows the static cup.
+  - Export round-trips the setting.
+  - Assert that the "Inside this day" and "Guided" elements are absent.
+
+## Scientific cautions for the UI text
+
+- Present this as a teaching illustration for one healthy adult on one day, not a dose recommendation. Don't call any amount "safe"; just cite EFSA (about 200 mg single dose / 400 mg per day for healthy adults, 200 mg/day in pregnancy) as a reference.
+- Caffeine in tea, cola or chocolate on the diet menu is not counted; only this coffee event is.

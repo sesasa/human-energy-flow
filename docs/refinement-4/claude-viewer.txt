@@ -1,0 +1,47 @@
+I've implemented all five viewer requirements within the files assigned to me, but none of it has been built, type-checked or run yet. At least one existing browser test will fail because of an intended move (details below).
+
+**What changed, by requirement**
+
+1. **Activity figure** (`activity.ts`):
+   - Resting is now a reclined pose on a clay-coloured lounge sofa with a pillow, arc lamp and plant, clearly different from the meal/work table.
+   - The colours are refreshed (sage shirt, dusty-blue shorts, coral accents), and the face has an eye highlight and a hair highlight.
+   - Poses still depend only on simulation time, so pause, seek and reduced motion behave as before.
+   - `update()` takes an optional `label` for the accessible name; existing calls work unchanged.
+   - A visible caption sits under the figure ("Eating breakfast" uses the actual meal; also "Reading · mental work", "Recovery walk", etc.). `#activity-tag` stays screen-reader-only, and the whole wrapper hides in the long-term view.
+2. **Layout** (`viewer.css`, imported last):
+   - Front/Back now sits at the top-left of the central viewer.
+   - The body is aligned to the top and taller: 640px by default, 710px on wide screens. The layer controls follow directly below it.
+   - Mobile keeps the old body sizing; there the caption overlays the bottom of the figure frame.
+3. **Metric balance**:
+   - A new left column (`#secondary-metrics`) holds the quieter rows, plus the stores watch, energy budget and person card.
+   - Rows are created once and only move between columns when the scene type changes, never during sprint/walk cycles.
+   - New rows:
+     - `aerobic`: a relative index based on heart rate, labelled "not blood oxygen".
+     - `glycolytic`: glycolysis's actual share of ATP regeneration right now.
+     - `bodyfat`: body fat %, with change in percentage points.
+4. **Two views**:
+   - "Inside a Day" (Healthy day / Sprint session) and "Over Time" (One year / Three years). All four original `#phase-*` IDs are kept and always clickable.
+   - A day now ends paused instead of jumping into years, and every manual seek pauses playback.
+   - In the long-term view, "Inside this day →" opens a day labelled "Representative Tuesday · menu from day 254". It uses that day's menu and the settled weekly simulation with the starting body; no long-term body changes are applied and the base scenario is never modified.
+   - A one-off day edit affects only day 1; later weeks use a separately cached simulation of the repeating week.
+   - "← Back to Over Time" restores the exact position you left. Applying a scenario or diet clears all of this.
+5. **Composition chart** (`charts.ts`):
+   - `#composition-chart` is a slider over the same timeline as playback, with four measures (`[data-chart-metric]`): body mass, lean mass, fat mass and body fat %, with units on the axis.
+   - Click or drag (works on touch) pauses and seeks. Keys: arrows ±1 day, Shift ±7, Home/End.
+   - The chart is built once per metric rather than redrawn while dragging. `#trace-host` and `#trace-cursor` are kept.
+
+**Tests you'll need to update**
+- `status-browser.ts` checks for `.story-panel #view-front`; that button now lives in `.body-stage`.
+- I couldn't list `tests/*.test.ts`. If a unit test expects the old 6-row output from `normalMetrics`/`sprintMetrics`, it will need updating.
+- I believe the sprint, meal and run checks in `browser.ts` still hold by design, but I haven't confirmed it.
+
+**Behaviour changes you didn't ask for**
+- Restart now stays in the current view. Before, restarting from the long-term view jumped back to the day view.
+- The long-term day counter now runs from day 1 to day 1095, to match the "Inside this day" label.
+- When showing a representative day, the stores watch shows that day's position on the nutrient trajectory, so it matches the menu.
+
+**Left for you**
+- Tooltip definitions for `aerobic`, `glycolytic` and `bodyfat`; until then they fall back to the row's note.
+- `updateStoreWatch` internals are unchanged, ready for the four-pool extension.
+
+The new IDs, API changes and edge cases are written up in `docs/refinement-4/viewer-notes.md`.

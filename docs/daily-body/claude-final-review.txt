@@ -1,0 +1,34 @@
+I found no blockers. One correction is worth making before sign-off: the new "layout-generated pointer events" check passes no matter what the code does, and `REVIEW.md` describes it as more than it proves. Everything else matches what I recommended or is a reasonable change from it. I only read code; I didn't run anything.
+
+## Snapshot consistency (correct)
+- **Same body in both views:** both views take the same fractional sample. The long view passes the sample directly. The daily views pass a person with that weight and fat fraction (`src/model/dayContext.ts:10-11`), plus `leanGain` for muscle size (`src/main.ts:227`). `bodyShape` gets the same mass and fat either way, so outline, lean width and muscle size match. Keeping fractional time instead of my whole-day suggestion is fine because only the week and food lookups use `floor`.
+- **Day index:** `elapsed%7` lines up with the order `simulateDiet` builds the week in and with `dietDayAt`. The weekday-6 light day matches the long view's `lightDay`.
+- **Day budget:** it matches the long view. Movement is scaled by weight and `person.weight_kg` is set to the new weight, so `energy.ts:14` doesn't scale it twice. The age difference (fractional age vs whole days) is under 1 kcal.
+- **Sprint session:** it uses the same `dayContext.options`, so its starting fuel stores match the routine day. Day 0 still reuses the existing baseline objects exactly.
+
+## One-day scope (correct)
+- The person is fixed for the whole simulated day, so body composition can't drift over the 24 hours.
+- A one-day food edit only applies in the first week (`elapsed>=7` drops it), and that is tested.
+- The starting profile and menus are cloned, not changed. Both test files confirm this, and the browser test checks the exported profile.
+- Applying new inputs clears `dayContext`, `longPosition` and `lastDay` (`src/main.ts:249`).
+- The shortcut is disabled outside the 18–85 years / 40–160 kg range. Body fat can't leave the allowed range, because the long-term projection stops at its limits first.
+
+## Live heart rate (correct)
+The daily views pass `long=null`, so the heart animation and `#hr` follow the live HR. Resting-HR-based measures use the snapshot's resting HR. Both tests check this against the sprint.
+
+## Unintended input changes
+I found none. The only changes are in the cloned scenario: weight, fat fraction, age, resting HR and ordinary movement. The unit test at `tests/day-context.test.ts:41` confirms that nothing else in `activity` changes.
+
+## Hover, focus and touch (no regressions found)
+- **Mouse:** a tooltip only opens after the pointer actually moves and then stays on a row that hasn't moved for 250 ms. Repeated events at the same position, and touch moves, are ignored.
+- **Focus:** opens immediately. Escape closes it and stops it reopening until the pointer leaves.
+- **Click and tap:** focus followed by click pins the tooltip, and a second click or tap closes it.
+- **Structural changes:** `hide()` in `updateMetrics` closes even pinned or focused tooltips. I had suggested keeping those open. Closing them is acceptable here: while paused, metric placement only changes through seeks, which already close tooltips, and moving a focused row out and back into the page drops its focus anyway.
+
+## Correction needed
+**The new check proves nothing about the reported bug** (`tests/daily-body-browser.ts:39`). Nothing in the code listens for `pointerover` any more, so dispatching one can never open a tooltip. `REVIEW.md:27` still lists "layout-generated pointer events" as covered. Either:
+- replace it with a real reproduction: hold the mouse still over `#metric-list`, start playback into the sprint so `#atp-sources` appears and the rows move, then assert `#educational-tooltip` stays hidden; or
+- reword the doc to say the check only covers a synthetic `pointerover` without movement.
+
+## Optional
+No test confirms that applying new inputs while a later day is open clears it and shows the new body. The female step at `tests/daily-body-browser.ts:33` runs after "Show day 1", when that day had already been cleared. The code handles it correctly; this is only missing test coverage.

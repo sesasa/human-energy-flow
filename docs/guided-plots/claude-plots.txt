@@ -1,0 +1,47 @@
+The plot renderer, the three model adapters, the stylesheet, a test file and the integration notes are done. Only the five new files exist, and no existing file was edited. The 5 new tests pass, and none of the type errors are in my files.
+
+`tsc` currently shows 3 errors, all in `src/main.ts`: `Property 'say' does not exist on type 'Narration'` at lines 157, 229 and 240. They come from your in-progress narration work; `tsc` was clean before that landed.
+
+I also did a throwaway headless-Chrome render in `/tmp`, since deleted. It showed no page errors and seeking maps exactly: a click at the middle of the sprint plot sent 606, which is the 600 start minute plus 6 minutes. Rendered checks:
+- **PCr:** the dips survive decimation, and the tests confirm every repetition's PCr minimum is kept exactly.
+- **ATP:** stays near the top of the fixed 0–100 axis.
+- **Ferritin:** the reference band, bleeding-day ticks, entered-result dot and dashed estimate all appear.
+- **Gaps:** null values show as breaks.
+
+**API**
+- **As contracted:** `src/visual/plotCard.ts` exports `SystemId`, `PlotPoint`, `PlotSeries`, `PlotSpec` and `PlotCard`; `src/visual/plotSpecs.ts` exports `dayPlotSpecs`, `sprintPlotSpecs` and `longPlotSpecs`.
+- **Optional additions:**
+  - `series.sample(x)` gives the exact model value for the cursor dot.
+  - `readout()` may also return `change`, which fills `SERIES-change`.
+  - New spec fields: `xLabel`, `yTicks`, `formatY`, `formatX`, `step`, `pageStep`, `limits`.
+  - `bands[].tick` draws short marks on the x axis.
+  - `PlotCard` gains `xFor()` and `dispose()`.
+  - Exported helpers: `minMaxDecimate`, `exerciseBands`, `interpolate`, `linePath`, `bandPath`.
+- **DOM:** the card is `section.plot-card#plot-CARD[data-plot]`. Each legend row is `.plot-row#row-SERIES[data-tip=metric-SERIES][tabindex=0]` inside `.plot-readout`, with `#SERIES-value`, `#SERIES-note` and `#SERIES-change`. Lines are `path.plot-line[data-series]`; the cursor is `g.plot-cursor`; the slider is `.plot-slider[role=slider]`, and the SVG is `aria-hidden`. All text is set with `textContent`.
+- **`data-plot` placement:** it is on the card only, not on paths, so `[data-plot=X]` matches exactly one element.
+
+**Integration points for you**
+- **IDs clash across modes.** Mount only one mode's cards at a time. `heart`/`hr` exists in both day and sprint modes, and long mode uses `hr` for resting heart rate.
+- **Remove the old meter rows.** The current rows in `main.ts` (`row-glucose` etc.) use the same IDs as the new cards.
+- **`emphasize`:** `emphasize(true)` marks a card relevant, `emphasize(false)` dims it, and `emphasize(true, ['pcr'])` also highlights just those lines. For no guidance, call `emphasize(true)` on every card.
+- **Sprint cards outside the session window** hide the cursor and show "—". Whether to show those cards then is up to you.
+- **Import `plots.css` once.**
+
+**Assumptions**
+- **Day:**
+  - Glucose and insulin are 0–1 relative indices with no units.
+  - Glycogen uses one gram axis from 0 to the larger capacity, with dotted capacity lines. Liver therefore sits low on the chart; that's honest scaling.
+  - Exercise is a band built from the 0/1 `contractionUptake` flag.
+  - Meals are unlabelled amber bands, because long meal names overlapped.
+- **Sprint:**
+  - The x axis is minutes from the first sprint, with 1 minute of warm-up and 1 minute of cooldown.
+  - Pathway shares are null outside sprints.
+  - "Available power" reads "Capacity, not current output" between sprints.
+- **Long:**
+  - Composition is plotted as change from start, with absolute values in the readouts.
+  - After the projection limit, the model's frozen copied states show as a gap reading "Projection stopped", not a flat line.
+  - Lab cards appear only for markers that are both selected and projected. The legend names the test (e.g. "Ferritin"), not the nutrient ("Iron").
+  - `reserveIllustration` is not used.
+- **Card height:** most cards are 142–153 px at 340 px width. Composition (166 px) and the lab cards (up to 164 px) run slightly over the ~150 px target.
+
+Everything is written up in `docs/guided-plots/plots-notes.md`.

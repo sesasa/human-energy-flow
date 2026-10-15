@@ -1,0 +1,77 @@
+## Verdict
+
+The approach holds up. Data-driven templates with no label penalty fit the existing engines. But several places assume four meals, the reference week, or a fixed set of food ids, and those will crash or mislabel results. The lean-mass question also needs one real model change, described below.
+
+## Integration hazards (must fix)
+
+1. **`src/engine/timeline.ts:6`** reads `s.meals[0..2]`. A two-meal day makes `dinner` undefined, so the whole day view crashes. Sort meals by hour and build chapters from what exists; drop "07 / A SECOND MIXED MEAL" when there are only two. Also, the `summary` caption ("Intake and expenditure are close") is fixed text. It will be wrong for both new templates, so derive it from `b.balance`, which `chapters()` already computes.
+2. **`dietPanel.ts:79`** hardcodes `count=4`. Use `order.length`. **`mealIndex`** is never clamped either: switching day or template while on meal 3 makes `draft[selected].meals[3]` undefined in `renderEditor`/`updateNumbers`. Clamp it on every day or template change.
+3. **`foodExperiments.ts:12,18`** use `.meals.find(m=>m.name==='Lunch')!`, which crashes on the two-meal template. Only offer an experiment when its meal exists. Salmon/mackerel swaps on the fast-food week are also odd; consider limiting experiments to Healthy.
+4. **`referenceDiet` is compared everywhere**: the day "edited" dots (`dietPanel.ts:32`), `status()` (:27), "Reset this day to reference" (:85) and the comparison strip (:37,41). Compare against the selected template's authored week. Label it e.g. "Fast food · edited week". The comparison strip can stay "Healthy → draft".
+5. **Template drafts and the nutrient panel.** Contributor `occurrence` indices (`labProjection.ts:95`) point into one week. After a template switch, call `nutrientPanel.update(preview(),draft,app)` so stale indices aren't edited. Template switching must not touch `draftStatus` or `draftContext` (this enforces your "no automatic deficiency" rule).
+6. **Reset** (`dietPanel.ts:90`) already applies `cloneDiet()`, which is exactly Healthy. Have it also discard the other templates' drafts so no hidden state survives "start over". Skip per-template reset; "Reset this day to [template]" covers it.
+7. **Food catalogue.** `totals()` throws if `grams > food.max`, so every authored portion must be ≤ max. Append new foods at the end of `meta` to keep the existing order. `NutrientKey` comes from the JSON, so keep the same `per100` keys.
+8. **Plates (`plates.ts`).** Add `TYPICAL`/`DRAW` entries; until then `DRAW.fallback` silently stands in. Draw tea and cola as side vessels like `milkGlass`. Hide the separate milk glass when the milk is in tea (e.g. 30 g); otherwise it draws a glass of milk.
+
+## Long-term model: what restriction currently does
+
+`longTerm.ts:25–31`: low energy (`energyAdequacy`, zero at −600 kcal) and low protein (`proteinAdequacy`) **only scale gains**. Lean mass is never lost. Every deficit comes out of fat until the 6%/14% floor, then the run freezes as "Outside model range". For the low-variety week this overstates fat loss and hides lean loss.
+
+**Recommended change:** split negative energy balance using the Forbes/Hall partition, lean share `p = C/(C+F)` with C ≈ 10.4 kg (Hall 2007). Then ΔW = E/(p·ρL + (1−p)·ρF), using the existing `lean_energy_kcal_kg` and `fat_energy_kcal_kg`, and keep the training `gain` as a separate term. Energy stays conserved, so `residual` still closes.
+
+- **Hazard:** apply the split to a **rolling 7-day mean balance**, not daily balance. Otherwise Healthy's rest-day deficits would steadily wear down lean mass and refill it as fat, even when the week balances.
+- **Consequence:** if Healthy's 7-day mean is ever negative, Healthy's long-term outputs will change. Check this before promising they stay identical.
+- **Leave out protein-driven lean loss.** There's no simple sourced coefficient for it; state it as a limitation.
+
+## Labs and pools
+
+- **Expect withheld trajectories.** Measured against a Healthy anchor, low-variety B12 and folate will fall well below ratio 0.5 (`labProjection.ts:72`), and fast-food folate probably will too. That's correct behaviour. In the out-of-scope message, show intake now vs at the result plus `storeTrend` from `simulateNutrients`, labelled "model store index, not a serum value". With B12 store loss at 0.1%/day the decline takes years; folate falls on a scale of weeks.
+- **Nulls are counted as zero.** If the new composite foods have `N` for B12, folate or vitamin D, intake becomes a lower bound and creates a fake drop. Withhold the numeric projection when the current plan is `missing` the marker's key but the anchor plan isn't.
+- **Vitamin D** stays within the ±25 µg limit, so it always gets a small numeric decline. That's fine.
+- **`dietAtResult` without an anchor** (`labProjection.ts:56`): an observation saved before anchors existed falls back to `app.week`, so a template switch moves the anchor and the change disappears. Consider stamping an anchor on load. Separately, line 67 mixes `app.startDay` with the anchor week; that's an existing minor issue.
+
+## Model limitations to state (no new penalties)
+
+- **Heme iron** is keyed by food id (`micronutrients.ts:32`), so new meats get 0 heme and absorbed iron is biased low. Prefer **component foods** (beefburger, coated chicken) over composite takeaway records. Then you can extend the same authored meat categories (beef .4, chicken .3) and document it. Use cheese-and-tomato pizza to avoid needing a heme value for pepperoni.
+- **Tea polyphenols** inhibit non-heme iron, but the model ignores them, so the low-variety week will overstate iron absorption. Add an inhibitor only with a sourced algorithm (e.g. Hallberg & Hulthén 2000); otherwise just note it.
+- **UK fat spreads** may carry fortification vitamin D in CoFID. That's real data, but call it out.
+- The low-variety week is energy-limited as well as nutrient-limited. With training on, the long-term result will be dominated by the energy deficit. Say so in the template caption.
+
+## UI
+
+- One three-option radio group (`role="radiogroup"`) above the day tabs: **Healthy · Fast food · Low variety**, with one caption line: "Authored example week · CoFID values · not a prescription."
+- Everything else already exists: draft state, comparison strip, coverage panel, Run. Lab preview already follows `preview()` in the Micronutrients tab.
+- Keep one shared "Add a food" list.
+
+## CoFID foods to add
+
+Names only; confirm exact codes and `N` values in the workbook:
+- white bread, white bread/burger roll
+- beefburgers (grilled), pork sausages (grilled), chicken in crumbs (fried/baked)
+- chips (French fries, fast-food or takeaway)
+- cheese & tomato pizza
+- cola (regular), black tea infusion, white sugar, tomato ketchup
+- potato crisps, fat spread
+
+## Realistic portions (edible g; liquids g ≈ ml)
+
+**Fast food / ultra-processed: 3 meals, rotating.** About 2,300–2,700 kcal/day; let the numbers fall where they do.
+
+| Meal | Items |
+|---|---|
+| Breakfast 08:00 | roll 70, sausage 45, egg 50, tea 250 + milk 30 + sugar 8; or croissant 60 + same tea |
+| Lunch 13:00 | roll 70, beefburger 90–110, cheddar 20, ketchup 15, fries 115 (UK medium), cola 400 |
+| Dinner 19:00 | ½ 12″ pizza 275–300 + cola 330; or fried chicken 150–180 + fries 150 + cola 400; crisps 32.5 on 3 days |
+
+Suggested step/max: cola 50/1000, fries 25/400, pizza 25/700, beefburger 10/300, roll 5/200, fried chicken 25/500, sausage 10/200, tea 50/1000, sugar 1/50, ketchup 5/60, crisps 5/150.
+
+**Low-variety: 2 meals.** About 1,400–1,800 kcal/day.
+
+| Meal | Items |
+|---|---|
+| Morning 10:00 | white bread 120–160, spread 10–15, tea 300 + milk 30 + sugar 10 |
+| Evening 19:00 | rice 400–450 **or** potatoes 400; oil 15–20, salt 1, tea + sugar 10; lentils 60 on 2 days, egg 50 on 1 day |
+
+Reuse the existing `rice` (white), `potato`, `lentils`, `eggs`, `milk`, `oil` and `salt`. Add white bread, spread, tea and sugar.
+
+Document both menus in `data/README.md` as authored teaching examples, as the reference menu already is.

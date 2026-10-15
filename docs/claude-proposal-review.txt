@@ -1,0 +1,107 @@
+# Review of the proposal
+
+The proposal is well structured. Separating the minute engine from the long-term engine, labeling glucose and insulin as relative signals, and treating coefficients as assumptions are the right calls. Most of the remaining issues are about where the schematic could teach something false.
+
+Each item is tagged **[Fact]** for established physiology or arithmetic, or **[Model]** for an illustrative assumption or design choice.
+
+---
+
+### 1. The Mifflin–St Jeor result is wrong, and the MET convention doesn't match it [Fact / arithmetic]
+
+- **Arithmetic:** for a male, 10·75 + 6.25·175 − 5·35 **+ 5** = **1673.75 kcal/day**. The proposal's 1668.75 drops the +5 male constant. Corrected expenditure is about 2616 kcal and balance about −13 kcal, which still supports the "near neutral" claim.
+- **MET convention:** net exercise uses (MET−1) × kg × h, which assumes 1 MET ≈ 1 kcal/kg/h. Mifflin gives this person 1673.75 / 24 / 75 ≈ **0.93 kcal/kg/h**.
+- **Recommendation [Model]:** pick one resting reference and use it everywhere. Either scale METs to Mifflin RMR, or state the mismatch in the model dialog. The 2024 Compendium discusses corrected METs.
+- The 25% protein TEF is at the high end of the usual ~20–30% range. That's fine, but label it as an assumption.
+
+### 2. "Mental work" must not show increased brain fuel use [Fact]
+
+- The brain uses roughly 20% of resting energy, about 100–120 g glucose/day, and this is nearly constant.
+- Focused cognitive tasks raise global brain metabolism by only about 1% (Raichle & Gusnard, which you already cite).
+- If 10–12 and 14–16 visibly draw more glucose to the brain, that is the single most misleading thing the app could teach. Show a **constant brain sink** and, at most, a tiny regional shift, with a caption that says so explicitly.
+- **Internal inconsistency:** the 6 h of mental work includes 12–13 and 20–21, but the storyboard labels those slots "return toward baseline" and "repair and day summary." Reconcile them.
+
+### 3. Sequential chapters misrepresent overlapping kinetics [Fact]
+
+The storyboard implies a sequence: absorption 08:20–09, then insulin 09–10, then distribution 10–12. In reality these overlap:
+
+- **Insulin** rises within about 10–20 min of eating and peaks around 30–60 min.
+- **Mixed-meal carbohydrate and amino acid absorption** continues for 3–5 h.
+- **Dietary fat (chylomicrons)** peaks around 3–4 h and stays elevated for 6 h or more, so dinner fat is still entering circulation during sleep.
+
+**Recommendation [Model]:** keep chapters as narrative focus. Let the engine run all signals concurrently, and have each chapter *highlight* a layer rather than imply that the others are inactive.
+
+### 4. Close the ledger for all three macronutrients, not just carbohydrate [Fact + Model]
+
+- **Protein [Fact]:** in a weight-stable adult, nearly all of the ~130 g/day protein is oxidized or used for gluconeogenesis and ureagenesis. Net protein deposition is only a few grams a day even during hypertrophy.
+  - "Protein is not an exercise fuel" is an acceptable simplification. Its actual contribution is roughly 2–5%, so label it.
+  - The 520 kcal must still appear as oxidized energy. Otherwise the app implies dietary protein "becomes muscle."
+- **Fat:** fat oxidation should close as the balancing term.
+- **Carbohydrate:** de novo lipogenesis is minimal in humans at this intake. Your "overflow oxidation" choice is correct; state it explicitly.
+- **Tests:** add per-macronutrient ledger closure to the Node tests (intake = oxidized + stored ± pool change, within tolerance).
+
+### 5. Get nutrient routing and reservoirs right [Fact]
+
+- **Routing:** glucose and amino acids go via the **portal vein to the liver first**. Long-chain fat goes via lymph and the thoracic duct into the left subclavian vein, **bypassing the liver**. The proposal labels the lymph route; also make the portal first pass visible, since it explains why the liver gets first access.
+- **Muscle glycogen** cannot release glucose into the blood because muscle lacks glucose-6-phosphatase. "Consumed locally" is correct, so make sure no animated path shows muscle glycogen returning to the blood.
+- **Plausible reservoir ranges for a fit 75 kg male:**
+  - Liver: about 80–120 g. Overnight, this falls by roughly 40–50%, with gluconeogenesis covering the rest of hepatic output.
+  - Muscle: about 350–500 g.
+- **Run fuel [Model check]:** the 18-minute run costs about 225 kcal gross. At roughly 70–80% carbohydrate, that is about 40–45 g, mostly muscle glycogen. Resistance work uses less. Assert these magnitudes in tests.
+
+### 6. Insulin signaling needs both halves, plus the exercise pathway [Fact]
+
+- **Insulin's effects beyond uptake:** besides promoting glucose uptake, insulin **suppresses lipolysis** and **suppresses hepatic glucose output**. The fat and liver visuals should respond to the purple signal too.
+- **During exercise:** muscle glucose uptake is **contraction-mediated and insulin-independent** (GLUT4 translocation via AMPK and calcium signaling). Insulin *falls* while catecholamines and glucagon rise.
+- **After exercise:** insulin sensitivity is elevated for many hours, which helps glycogen resynthesis at the 19:00 dinner.
+- **Why it matters:** showing insulin as the only gate for uptake during the run would be wrong. These relationships are cheap to depict and high in teaching value.
+
+### 7. Long-term body composition: tighten the definitions and magnitudes [Fact + Model]
+
+- **"Lean" vs "muscle" [Fact]:** lean or fat-free mass is not the same as muscle. About 1800 kcal/kg (Hall-style ρL) is the *energy content* of FFM, which is about 73% water.
+  - Synthesis cost is extra. Either fold it in or state that it is omitted.
+  - The 9400 kcal/kg figure applies to *chemical fat mass*, not adipose tissue. Make sure "17% body fat" means the same thing.
+- **Mifflin ignores composition:** it depends on weight only. Recomposition (lean up, fat down, weight flat) therefore leaves predicted RMR unchanged. Consider an FFM-dependent RMR term in the long-term engine, or document the limitation.
+- **Plausible magnitudes [Model]:** for an already moderately fit 35-year-old near energy balance, about **0.5–2 kg FFM in year 1**, with a plateau by years 2–3. Spread over the body, that means visible girth changes of a few percent. Keep the SVG morphing very subtle and give it a numeric label.
+- **Training frequency:** a repeated "representative day" implies running plus resistance training 7 days a week. Either make the long-term engine use a weekly schedule (for example 3–4 resistance days with real muscle-group rotation), or state that the day is an average.
+
+### 8. Cardiovascular adaptation should change heart rate, not running energy cost [Fact + Model]
+
+- **[Fact]:** the energy cost of running at a given speed is set mainly by body mass and barely changes with fitness. What changes is:
+  - **lower heart rate at the same pace** (higher stroke volume)
+  - **resting heart rate a few bpm lower**
+  - **VO₂max up roughly 5–15%** in someone already moderately fit, plateauing within months
+  - faster heart-rate recovery
+- **[Model]:** do not let rising fitness reduce the 10-MET run cost or raise daily expenditure. Do let exercise energy scale with body mass.
+- **Day profile:** heart rate during sleep should sit below the daytime resting baseline. Mental-work heart-rate changes should be small.
+
+### 9. Color encoding has collisions and accessibility gaps [Model / usability]
+
+- **Collisions:**
+  - Gold glucose vs yellow dietary fat is hard to tell apart, especially on animated paths.
+  - Cyan is used for amino acids, for recovery, *and* for coordinate UI.
+  - Mint glycogen sits next to cyan.
+- **Fixes:**
+  - Give each nutrient a unique hue *and* a secondary cue, such as particle shape, dash pattern, or path width.
+  - Reserve cyan for one meaning only.
+  - Check deuteranopia and protanopia simulations.
+  - Respect `prefers-reduced-motion` by replacing particle animation with static flow arrows.
+- The "representative day" label in long-term view is good. Make it persistent on screen, not only in narration.
+
+### 10. Architecture and usability details [Model]
+
+- **Periodic initial state:** "overnight carryover from a repeating day" requires the 06:00 state to be a *periodic steady state*. Iterate the day until the pools at 06:00 converge, then start playback. Test that start and end states match within tolerance.
+- **Single master clock:** make the simulation timeline the clock. Speech synthesis follows captions, never the reverse, because `onend` timing varies by voice and browser and some voices are missing. Cancel speech on scrub or pause.
+- **Parameter provenance:** keep one typed parameter object, with units encoded in names or branded types. Each coefficient should carry a `source` or `assumption` tag that feeds the model dialog directly, so documentation can't drift from the code.
+- **Engine boundary:** the long-term engine should consume aggregated daily outputs from the day engine, such as oxidized macros, training stimulus and sleep. It should not re-simulate 1440 minutes × 1095 days on every slider change, unless parameters affect the day trace; in that case, recompute the representative day once.
+- **Ambiguous sentence:** "No exercise comparison is included only for architecture/testing" can be read two ways. Clarify whether a no-exercise scenario is user-visible.
+
+---
+
+**Overall:** the energy budget is close to plausible once the +5 is fixed. The main risks to accuracy are pedagogical rather than numerical:
+
+- brain fuel during mental work (#2)
+- the sequential storyboard (#3)
+- an incomplete protein and fat ledger (#4)
+- insulin shown as the only uptake gate during exercise (#6)
+
+Fix those four and the schematic will teach correctly even though it is simplified.

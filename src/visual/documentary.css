@@ -1,0 +1,85 @@
+/* One story, one shared clock. The body and its controls form a single stage. */
+.simulation{display:grid;grid-template-columns:minmax(170px,.64fr) minmax(410px,1.8fr) minmax(320px,1.08fr);grid-template-rows:1fr;align-items:start}
+.story-panel{grid-column:1;grid-row:1;display:block;padding:28px 23px 20px 0;min-width:0}
+.story-panel h2{font-size:30px;line-height:1.14;margin:18px 0 24px;max-width:230px}
+.story-panel>.eyebrow{font-size:8px;line-height:1.6;letter-spacing:1.2px}
+.scene-keys{gap:14px}.scene-keys li{font-size:12px;line-height:1.5}
+.scene-facts{margin:24px 0 0}.explore-hint{margin-top:26px;font-size:10px}
+.story-panel .why-panel{margin-top:24px}.story-panel .why-panel p{font-size:12px;line-height:1.65}
+.story-panel .meal-cameo{margin-top:22px}.story-panel .meal-cameo svg{max-height:160px}
+.day-context{margin:0 0 24px;padding:10px}.day-context>strong{font-size:12px}.day-context>span{font-size:10px}
+.body-stage{grid-column:2;grid-row:1;position:relative;display:flex;flex-direction:column;min-width:0;overflow:visible;margin:0;border-left:1px solid var(--line);border-right:1px solid var(--line)}
+.body-stage .stage-top{top:18px;left:16px;right:14px;display:flex;flex-direction:row;align-items:flex-start;justify-content:space-between}
+.anatomy-controls .view-picker{display:flex;gap:12px}.view-picker button{font-size:11px}
+#body-host{display:flex;align-items:flex-start;justify-content:center;height:570px;min-height:0;padding:20px 0 0;flex:none;overflow:hidden}
+#body-svg{height:550px;width:100%;max-width:100%;flex:none}
+.body-stage .activity-vignette{width:113px;height:91px}.activity-caption{max-width:123px;font-size:9px;padding:4px 7px;white-space:normal;text-align:center}
+
+.system-rail{position:absolute;left:16px;top:72px;width:118px;display:flex;flex-direction:column;gap:5px;z-index:3}
+.system-rail button{display:flex;align-items:center;gap:8px;text-align:left;min-height:36px;padding:7px 8px;border:1px solid transparent;border-radius:5px;color:#9cac91;background:#17231bf0;transition:border-color .2s,background .2s}
+.system-rail button>span{width:14px;flex:none;text-align:center;font-size:15px;color:#c9d3b5}.system-rail small{font-size:9px;line-height:1.4}
+.system-rail button:hover,.system-rail button:focus-visible{background:#293d25;color:#ecf1dc}
+.system-rail button[aria-pressed=true]{border-color:#759266;color:#edf2db;background:#2c4027}
+.system-rail button.guided-focus{border-color:#475e3f;background:#21311f;color:#dce6c7}
+.body-legend{position:absolute;right:12px;top:172px;width:108px;display:flex;flex-direction:column;align-items:flex-start;z-index:3;pointer-events:none}
+.body-stage .body-legend{font-size:10px;gap:12px;flex-wrap:nowrap}
+.body-legend>span{display:flex;align-items:center;gap:7px;white-space:nowrap}
+.body-legend i{font-style:normal;font-size:12px;width:14px;text-align:center;flex:none}
+.body-bottom{position:static;padding:10px 12px 16px;display:flex;flex-direction:column;align-items:center;gap:9px;min-height:0}
+.body-note{font-size:7px;letter-spacing:.9px;line-height:1.4;text-align:center}.legend{max-width:none;font-size:8px;gap:12px;flex-wrap:wrap;justify-content:center}.person-label{font-size:9px;color:#8ca47d}
+.body-stage[data-focus-system=cardiovascular] #circulation,.body-stage[data-focus-system=cardiovascular] #organ-heart{filter:drop-shadow(0 0 3px #db9b7688)}
+.body-stage[data-focus-system=metabolism] #organ-liver,.body-stage[data-focus-system=micronutrients] #organ-liver{filter:drop-shadow(0 0 4px #b6d695aa)}
+.body-stage[data-focus-system=digestion] #organ-gut,.body-stage[data-focus-system=digestion] #organ-pancreas{filter:drop-shadow(0 0 4px #d6b48699)}
+.body-stage[data-focus-system=brain] #organ-brain{filter:drop-shadow(0 0 5px #b9a6d5aa)}
+.body-stage[data-focus-system=muscular] [data-muscle]{filter:drop-shadow(0 0 2px #c79c6266)}
+.narration-guide{padding:14px 20px 12px;border-top:1px solid #43543b;background:#1f2d1b88;min-height:91px}
+.narration-guide>div{display:flex;align-items:center;gap:7px;font-size:8px;letter-spacing:1px;color:#a5be8e}
+.narration-dot{height:5px;width:5px;border-radius:50%;background:#c4d5a5}
+.narration-guide p{margin:8px 0 0;font-size:12px;line-height:1.6;color:#d2debf;max-width:60ch}
+.body-stage .transport{width:auto;margin:0;padding:17px 18px 24px;border-top:1px solid #536348;border-bottom:0;background:#17231a66}
+.transport-top{display:flex;flex-wrap:wrap;gap:16px 12px;margin-bottom:12px;align-items:center;justify-content:space-between}
+.play-controls{display:flex;align-items:center;gap:10px;flex:1;flex-wrap:wrap}.play-controls .time-display{font-size:22px;min-width:0;white-space:nowrap}.play-controls .tiny-label{font-size:8px;max-width:135px;line-height:1.5}
+.play-button{width:37px;height:37px;flex:none}.secondary-controls{gap:14px;display:flex;align-items:center;justify-content:space-between}
+.secondary-controls .text-button{font-size:11px}.speed-label{font-size:9px}.speed-label select{font-size:11px}
+.transport-middle{order:3;width:100%;justify-content:flex-end}.transport-middle .text-button{font-size:10px}
+.transport input[type=range]{margin:12px 0 7px;width:100%}
+#day-timeline{display:block;padding-top:10px}#day-timeline-label{display:block;font-size:8px;margin-bottom:1px}
+.milestones,.intense-mode .milestones{display:flex;flex-wrap:wrap;gap:4px 13px;height:auto;justify-content:flex-start;min-height:22px}
+.milestones button,.intense-mode .milestones button{position:static;transform:none;left:auto!important;font-size:8px;padding:4px 0;white-space:nowrap}
+.body-stage #milestones button{position:static;transform:none;left:auto;right:auto;flex:0 0 auto}
+.transport-axis{display:flex;justify-content:space-between;padding:0 5px;font:9px/1.4 ui-monospace,monospace;color:#a7b998}
+.jump-links{display:flex;align-items:baseline;gap:11px;padding-top:15px;margin-top:10px;border-top:1px solid var(--line)}.jump-links>.tiny-label{font-size:7px;white-space:nowrap;color:#9bac8d}
+.body-stage #milestones button{padding:4px 6px;border:1px solid #354a30;border-radius:3px;font-size:8px}
+.session-caption{gap:10px;flex-wrap:wrap;align-items:center}.session-caption>strong:first-child{font-size:12px}.session-caption>span:nth-child(2){font-size:8px}.session-caption>strong:nth-child(3){font-size:20px;min-width:0}
+.session-key{font-size:8px;margin-left:auto;gap:4px}.session-key i:nth-child(2){margin-left:5px}
+.interval-strip{display:grid;grid-template-columns:repeat(20,minmax(0,1fr));gap:3px;padding:12px 0 0;margin:0;overflow:visible}.interval-strip>button{min-width:0}.rep-segments{height:15px}.interval-strip small{font-size:7px}
+.interval-endpoints{font-size:8px;line-height:1.4;gap:8px}.interval-endpoints>span:nth-child(2){text-align:center;font-size:8px}
+.intense-mode #day-timeline{display:block;margin-top:12px;padding-top:13px;border-top:1px solid var(--line)}.intense-mode #scrubber{width:100%;margin:12px 0 7px}
+.state-panel{grid-column:3;grid-row:1;padding:22px 0 20px 20px;min-width:0}
+.state-panel>.panel-heading{margin-bottom:13px}.panel-heading .eyebrow{font-size:9px;letter-spacing:1px}.panel-heading>span:last-child{font-size:7px;display:block;letter-spacing:.7px}
+#physiology-plots{display:grid;gap:10px}.plot-card.is-dimmed{opacity:1;border-color:#2e4232}.plot-card.is-dimmed .plot-line{opacity:.65}.plot-row.is-dim{opacity:.85}.plot-line.is-dim{opacity:.5}
+.plot-card:focus-within,.plot-card:hover{opacity:1}.plot-card{scroll-margin:20px}.plot-area{height:58px}
+.plot-card.is-active{border-color:#829861;box-shadow:inset 2px 0 #a9c184}.plot-frame{margin-top:7px}.plot-band-label{display:none}
+.plot-note{font-size:10px;line-height:1.4}.plot-title{font-size:12px}.plot-unit{font-size:9px}.plot-x-label{font-size:9px}
+.plot-reference-label{font-size:9px;line-height:1.5;color:#b6c8a7}
+.mobile-follow{display:none}
+#physiology-plots #row-atp{min-height:0;padding:0}#physiology-plots #row-atp small:not([hidden]){display:inline}
+.state-panel .energy-card{margin:19px 0 0;padding-top:14px}.energy-card strong{font-size:17px}.energy-card>small{font-size:10px}.nutrient-shortcut{margin-top:16px;font-size:11px;text-align:left;line-height:1.5}
+@media(min-width:1600px){#body-host{height:650px}#body-svg{height:630px}.simulation{grid-template-columns:minmax(190px,.65fr) minmax(500px,1.8fr) minmax(370px,1.08fr)}.body-stage .activity-vignette{width:130px;height:104px}.body-legend{top:188px;width:118px}.system-rail small{font-size:10px}}
+@media(min-width:761px) and (max-width:1120px){
+ .simulation{grid-template-columns:160px minmax(305px,1fr) minmax(260px,.9fr)}.story-panel{padding-right:16px}.story-panel h2{font-size:25px}.scene-keys li{font-size:11px}
+ .state-panel{padding-left:13px}.plot-head{flex-wrap:wrap;gap:2px}.plot-unit{text-align:left}.panel-heading>span:last-child{display:none}
+ #body-host{height:520px;padding:25px 0 0}#body-svg{height:485px;width:96%;max-width:96%}.system-rail{left:10px;width:84px}.system-rail button{gap:3px;padding:6px 3px}.system-rail small{font-size:8px}.system-rail button>span{width:12px}.anatomy-labels{display:none}.body-legend{top:165px;right:5px;width:86px}.body-stage .body-legend{font-size:9px}.body-legend>span{gap:5px}
+ .body-stage .stage-top{left:10px;right:6px}.body-stage .activity-vignette{width:99px;height:79px}.activity-caption{max-width:100px;font-size:8px}.transport-top{gap:10px}.secondary-controls{width:100%}.play-controls .tiny-label{max-width:none}.body-stage .transport{padding:14px 12px 20px}.session-key{display:none}
+}
+@media(max-width:760px){
+ .simulation{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto}.story-panel{grid-column:1;grid-row:1;display:grid;grid-template-columns:1fr 1fr;gap:0 20px;padding:20px 0;max-width:none}.story-panel h2{font-size:27px;max-width:none;margin:10px 0 15px;grid-column:1}.story-panel>.eyebrow{grid-column:1/-1}.story-panel .scene-keys{grid-column:2;grid-row:2 / span 2;align-self:center;margin:0}.scene-keys li{font-size:11px}.story-panel .scene-facts{grid-column:1/-1;margin:0}.story-panel .why-panel{margin-top:10px;grid-column:1/-1}.explore-hint{display:none}.story-panel .meal-cameo{grid-column:1/-1;margin:12px 0 0;display:grid;grid-template-columns:105px 1fr;align-items:center;gap:3px 15px}.meal-cameo>svg{grid-column:1;grid-row:1/5;height:100px}.meal-cameo .tiny-label{grid-column:2}.meal-cameo .meal-causal{grid-column:1/-1}.story-panel .day-context{margin:0 0 15px}.day-context>small{font-size:10px}
+ .body-stage{grid-column:1;grid-row:2;border-left:0;border-right:0;border-top:1px solid var(--line);margin:0}.body-stage .stage-top{top:15px;left:0;right:0;justify-content:space-between}.body-stage .activity-vignette{width:105px;height:84px}.activity-caption{max-width:112px;font-size:9px}
+ #body-host{height:515px;padding:25px 0 0}#body-svg{height:480px;width:92%;max-width:92%}.system-rail{left:0;top:68px;width:85px;gap:4px}.system-rail button{min-height:34px;gap:3px;padding:7px 3px}.system-rail small{font-size:8px}.system-rail button>span{font-size:13px;width:12px}.body-legend{right:0;top:164px;width:90px}.body-stage .body-legend{font-size:9px}.body-legend>span{gap:5px}
+ .body-bottom{padding:4px 8px 14px}.body-note{font-size:7px}.legend{font-size:8px}.person-label{font-size:10px}.body-stage .transport{padding:17px 0 22px;background:none}.play-controls .tiny-label{font-size:8px;max-width:125px}.secondary-controls{width:100%}.transport-top{gap:13px}.milestones button:first-child{display:block}.milestones button{font-size:9px}.session-key{display:none}.interval-strip{grid-template-columns:repeat(20,minmax(0,1fr));gap:3px}.interval-endpoints>span:nth-child(2){font-size:7px}.narration-guide{padding:14px;min-height:95px}
+ .state-panel{grid-column:1;grid-row:3;padding:20px 0;border-top:1px solid var(--line)}.panel-heading .eyebrow{font-size:10px}.panel-heading>span:last-child{display:block}.plot-title{font-size:13px}.plot-unit{font-size:10px}.plot-readout{font-size:11px}.plot-area{height:70px}.plot-note{font-size:10px}.plot-detail,.plot-change{font-size:10px}.plot-x,.plot-y{font-size:10px}.plot-x-label{font-size:9px}.plot-row{padding:3px 0}.plot-card{padding:11px 12px;gap:5px}
+ .mobile-follow{display:block;padding:6px 0 15px}.mobile-follow>.tiny-label{display:block;margin-bottom:9px;font-size:8px}.mobile-follow .plot-note,.mobile-follow .plot-x-label{display:none}.mobile-follow .plot-area{height:56px}.mobile-follow .plot-title{font-size:12px}.mobile-follow .plot-readout{font-size:10px}
+ .secondary-controls{gap:10px}.secondary-controls #captions{font-size:10px}.jump-links{align-items:flex-start}.body-stage #milestones button{font-size:9px}
+}
+@media(max-width:359px){#body-host{height:475px}#body-svg{height:450px;width:90%;max-width:90%}.system-rail{width:68px}.system-rail small{font-size:8px}.system-rail button{flex-direction:column;gap:2px;padding:5px 1px;text-align:center}.body-legend{width:65px}.body-stage .body-legend{font-size:8px}.body-legend>span{gap:3px}.body-legend i{width:11px;font-size:11px}.story-panel{gap:0 12px}.story-panel h2{font-size:24px}.scene-keys li{font-size:10px}.play-controls .tiny-label{max-width:98px;font-size:7px}.plot-head{flex-wrap:wrap;gap:2px}.plot-unit{text-align:left}}
+@media(prefers-reduced-motion:reduce){.system-rail button{transition:none}}

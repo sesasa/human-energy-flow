@@ -1,0 +1,124 @@
+/* Viewer refinement 4. Imported last in main.ts; overrides style.css and status.css without editing them. */
+
+/* Two views: Inside a Day / Over Time, each with its own submodes. All four submodes stay visible and clickable. */
+.view-nav{display:flex;align-items:stretch;gap:6px;padding:5px;border:1px solid #354832;border-radius:6px;background:#15211a99}
+.view-group{display:flex;align-items:center;gap:6px;padding:4px 5px 4px 4px;border-radius:4px}
+.view-group.active{background:#1f2f1f;box-shadow:inset 0 0 0 1px #3e5636}
+.view-tab{padding:9px 10px;font-family:'Manrope',system-ui,sans-serif;font-size:13px;font-weight:600;letter-spacing:-.2px;color:#9fb28e;white-space:nowrap;border-radius:3px}
+.view-group.active .view-tab{color:#eef3dc}
+.view-modes{display:flex;gap:2px;padding-left:8px;border-left:1px solid #3a4f34}
+.view-modes button{padding:8px 11px;font-size:11px;color:#8fa583;border-radius:3px;white-space:nowrap}
+.view-modes button.active{background:#3c5033;color:#e4edce}
+.view-group:not(.active) .view-modes button{color:#7b9070}
+.view-tab:hover,.view-modes button:hover{color:#f0f4e2}
+
+/* Desktop grid: the left column is the story plus quieter measures; centre and right span both rows. */
+@media(min-width:761px){
+ .simulation{grid-template-rows:auto 1fr}
+ .story-panel{grid-column:1;grid-row:1;padding-bottom:8px}
+ .secondary-panel{grid-column:1;grid-row:2}
+ .body-stage{grid-column:2;grid-row:1/3;display:flex;flex-direction:column}
+ .state-panel{grid-column:3;grid-row:1/3}
+ /* Anatomy sits high and large; controls follow directly below instead of floating at the column bottom. */
+ .stage-top{top:16px;left:18px;right:16px}
+ #body-host{align-items:flex-start;height:auto;min-height:0;padding:34px 0 0;flex:none}
+ #body-svg{height:640px}
+ .body-bottom{position:static;padding:14px 10px 22px}
+}
+@media(min-width:1600px){#body-svg{height:710px}}
+@media(min-width:761px) and (max-width:1200px){#body-svg{height:600px}}
+@media(min-width:761px) and (max-width:960px){#body-svg{height:540px}}
+
+/* Stage overlay: Front/Back top-left, activity figure top-right. */
+.body-stage .stage-top{align-items:flex-start;justify-content:space-between;pointer-events:none}
+.stage-top .anatomy-controls{margin:0;pointer-events:auto}
+.stage-top .anatomy-controls .view-picker{background:#15211acc}
+.activity-wrap{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;pointer-events:auto}
+.activity-wrap .activity-vignette{position:relative;top:auto;right:auto;box-shadow:0 8px 24px #0004}
+.activity-caption{display:block;max-width:156px;padding:4px 11px 4px 9px;border:1px solid #42593a;border-radius:999px;background:#18261cdd;color:#dbe6c6;font-size:10px;font-weight:500;letter-spacing:.2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.activity-caption:before{content:'';display:inline-block;width:5px;height:5px;margin-right:6px;border-radius:50%;background:#adca8e;vertical-align:1px}
+.activity-caption.sprint{color:#f2c497;border-color:#7b5b3d}
+.activity-caption.sprint:before{background:#e3a878}
+
+
+
+
+/* Representative-day banner with the return path. */
+.day-context{display:flex;flex-direction:column;gap:6px;margin:-8px 0 24px;padding:11px 13px 9px;border:1px solid #4c623f;border-left:3px solid #c9dba6;border-radius:5px;background:#1d2c1c}
+.day-context>span{font-size:11.5px;font-weight:600;color:#e3ebcf;line-height:1.4}
+.day-context>small{font-size:9px;color:#93a882;line-height:1.5}
+.day-context>strong{font-size:14px;font-weight:500;color:#cfddb7;line-height:1.5}
+.day-context>div{display:flex;flex-wrap:wrap;gap:2px 14px}
+.day-context .text-button{font-size:10px;color:#cfe0b0;padding:4px 0}
+.day-context #day-context-reset{color:#93a882}
+
+/* Left: quiet secondary measures, stores and the energy budget. */
+.secondary-panel{display:flex;flex-direction:column;min-width:0;padding:0 25px 25px 0}
+.secondary-panel>.panel-heading{border-top:1px solid var(--line);padding-top:16px;margin-bottom:6px}
+.secondary-metrics .metric{min-height:0;padding:8px 9px 8px 10px;margin:1px -9px 1px -10px;opacity:.92}
+.secondary-metrics .metric-head{font-size:10px;color:#c3cfb0}
+.secondary-metrics .metric-head strong{font-size:12.5px}
+.secondary-metrics .metric-track{height:4px;margin:6px 0 0}
+.secondary-metrics .metric small{display:none}
+.secondary-metrics .metric-delta{font-size:9px;margin-top:4px}
+.secondary-panel .stores-watch{margin:16px 0 4px}
+.secondary-panel .energy-card{margin-top:16px}
+.secondary-panel .subject-card{margin-top:auto;padding-top:26px}
+
+/* Right: the composition chart is a native slider over the shared timeline. */
+.composition-card{margin-top:18px}
+.composition{margin-top:10px}
+.chart-metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:2px;padding:3px;border:1px solid #344a2f;border-radius:5px;background:#1b291b}
+.chart-metrics button{padding:7px 3px;font-size:9.5px;color:#93a983;border-radius:3px;white-space:nowrap}
+.chart-metrics button[aria-pressed=true]{background:#3c5033;color:#e6eed2}
+.composition-chart{position:relative;margin-top:8px;border-radius:4px;cursor:ew-resize;touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.composition-chart.dragging{cursor:grabbing}
+.composition-chart:focus-visible{outline:2px solid #c6dca8;outline-offset:3px}
+.composition-svg{display:block;width:100%;height:auto;overflow:visible}
+.composition-chart:hover .chart-halo,.composition-chart:focus-visible .chart-halo,.composition-chart.dragging .chart-halo{opacity:.3}
+.chart-cue{display:block;margin-top:7px;font-size:9px;line-height:1.5;color:#90a67e}
+.chart-cue i{font-style:normal;color:#c9dba6;margin-right:4px}
+
+@media(max-width:1200px){
+ .view-tab{font-size:12px;padding:8px}
+ .view-modes button{padding:8px 8px;font-size:10px}
+ .secondary-panel{padding-right:18px}
+ .chart-metrics button{font-size:8.5px}
+}
+@media(max-width:960px){
+ .view-nav{width:100%}
+ .view-group{flex:1}
+ .view-modes{flex:1}
+ .view-modes button{flex:1}
+ .secondary-panel{padding-right:15px}
+ .chart-metrics{grid-template-columns:1fr 1fr}
+}
+@media(max-width:760px){
+ .view-nav{gap:4px;padding:4px}
+ .view-group{flex-direction:column;align-items:stretch;gap:3px;padding:4px}
+ .view-tab{text-align:left;padding:6px;font-size:12px}
+ .view-modes{border-left:0;padding-left:0}
+ .view-modes button{padding:8px 4px;font-size:10px}
+ .story-panel .day-context{grid-column:1/-1;margin:0 0 16px}
+ .stage-top{align-items:flex-start;left:4px;right:4px}
+ .activity-caption{position:static;max-width:112px;text-align:center;white-space:normal;overflow:visible;font-size:9px;padding:3px 7px;line-height:1.35}
+ 
+ .secondary-panel{grid-column:1;grid-row:4;padding:18px 0 22px;border-top:1px solid var(--line)}
+ .secondary-panel>.panel-heading{border-top:0;padding-top:0}
+ .secondary-metrics{display:grid;grid-template-columns:1fr 1fr;column-gap:24px}
+ .secondary-metrics .metric{margin:0 -7px 0 -8px;padding:8px 7px 8px 8px}
+ .chart-metrics{grid-template-columns:repeat(4,1fr)}
+ .chart-metrics button{font-size:9px}
+}
+@media(max-width:430px){
+ .view-tab{font-size:11px}
+ .view-modes button{font-size:9px;padding:7px 2px}
+ .chart-metrics{grid-template-columns:1fr 1fr}
+
+}
+/* Four optional nutrient pools remain legible in the narrow left column. */
+.secondary-panel .watch-pools{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px 12px}
+.secondary-panel .watch-pools button{min-width:0}
+.secondary-panel .watch-pools strong{font-size:15px;white-space:normal;overflow-wrap:anywhere}
+.secondary-panel .watch-pools button>span{font-size:10px;line-height:1.5;min-height:30px}
+.secondary-panel .watch-pools small{font-size:10px;line-height:1.5}

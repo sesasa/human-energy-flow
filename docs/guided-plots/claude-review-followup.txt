@@ -1,0 +1,17 @@
+All 12 fixes resolve the original findings, and none of them blocks shipping. This was a read-only code review: I didn't open the preview, run the suites or check the screenshots. Three small issues remain, in order of importance:
+
+1. **Picking a system with no plot now highlights every card instead of none (fix 6).** When nothing matches, `guidePlots` sets `active=true` for every card (`main.ts:143`). `emphasize(true)` then gives each card the brighter border and left accent (`documentary.css:59`). So choosing Brain marks every plot as relevant, which is the opposite signal from finding 6. A neutral state that is neither active nor dimmed would match "leaves the plots undimmed".
+
+2. **The long-term scene text can briefly say "steady" right after the start, even when fat is rising (fix 4).** `longStory.ts:6-9` compares against "since the start" while under 90 days but keeps the fixed ±0.15 kg threshold. In the first few days of a fast-food scenario the change is still below 0.15 kg, so the title briefly reads "A steadier state." with "Fat mass nearly steady". At long-mode playback speed this lasts about a second, but it is exactly the claim finding 4 was about. Comparing a rate (change ÷ days elapsed) instead of an absolute change would fix it.
+
+3. **Turning voice on always turns captions back on (fix 8).** `main.ts:242` (`if(narrator.toggle())captionsEnabled=true`) runs every time voice goes on, not just the first time. Someone who switched captions off, then turned voice off and on again, gets captions back. That differs from "enables captions initially". If that's intended, only the wording needs changing.
+
+**Optional, not a defect:** after a plain click (not a drag) on a day plot inside the sprint window, the plots swap on the next frame. The focused card is removed, so arrow keys pressed afterwards do nothing. This is the "swap on release" behaviour the original finding suggested, and the keyboard-only path is pinned correctly.
+
+**Checked and fine:**
+- **Timeline:** the time labels are evenly spaced, which is correct here: 06:00–06:00 sits at quarters and Start to Year 3 at thirds. The JUMP TO row is sorted and visually separate.
+- **Deferred plot swap:** the render loop runs every 40 ms even when paused (`main.ts:323`), so a postponed swap finishes as soon as a drag ends or the plot loses focus. The mobile copy is pinned the same way.
+- **Related plots:** the extra plots are attached to `exercise-start`, `exercise-recovery`, `sprint-intro` and `walk-first`, and each one exists in the plot set showing at that moment.
+- **Lab tooltips:** "from start" is no longer added after "vs entered" (`plotTips.ts:24`).
+- **Sprint start:** the mode button, Apply scenario and Show day 1 all start at `startMinute - warmup_minutes`.
+- **Silent captions:** they use a polite live region only when voice is off, as described.

@@ -1,0 +1,19 @@
+**Verdict: ready to ship.** I didn't edit anything. All seven findings from my earlier review are fixed in the code, and I found no remaining material defects or misleading claims. The documented limitations still apply: one cup only, an illustrative sleepiness effect, and no prediction of heart rate or sleep.
+
+## Fixes confirmed
+
+- **Meal story wins over coffee.** Coffee only shows when there's no meal (`src/main.ts:196`). The meal cameo is gated the same way, and the clearance scene now follows `narrator.current?.id==='coffee-clearing'`. `coffee-lunch-preserved.png` confirms it: with a 10:00 cup, the 13:00 view shows the "Chicken, rice & greens" title, plate, macros, the "Eating lunch" tag and the lunch narration. Caffeine reads 62 mg, which matches the kinetics for 3 h after a 90 mg cup.
+- **Overlapping cues are trimmed, not deleted** (`src/engine/coffeeNarration.ts:29-36`). A cue keeps its head if that part is at least 8 min, otherwise its tail if at least 8 min. Anything shorter is narrated alongside the drink cue instead of disappearing. The brain-cue loop (`:42-47`) only starts in a free minute and ends at the next cue, so it no longer re-cuts the preserved tail.
+- **Rail highlights match the cue.** The drink cue highlights Digestion (visible in `coffee-break.png`), the brain cue highlights Brain, and the clearance cue highlights Metabolism. Through the existing `data-focus-system=metabolism` CSS, that makes the liver glow. The `'liver'` focus string isn't itself read by `body.ts`, so the liver emphasis comes from the system mapping. It works as described.
+- **Times are rounded in the screenshots.** They show Peak ~10:20 and Half of peak ~15:40 for the 09:30 cup, ~16:10 for the 10:00 cup, and ~02:10 for the 20:00 cup.
+- **Sleep shading** is now described neutrally ("Vertical shading: scheduled sleep").
+- **Accessible label and schedule validation:** the activity tag reads "DRINKING COFFEE" and the caption reads "Drinking coffee". `coffeeForSchedule` is applied both at startup and in `rebuildCoffee`.
+- **Evening screenshot:** at 22:00 the coffee scene is correctly hidden while the body is asleep. The bedtime sentence (71 mg) is hedged, and the readout says "Scheduled, not predicted".
+- **390 px layout:** the followed plot is the caffeine card, the narration matches the `coffee-brain` cue at 09:50, and the Brain rail is active.
+
+## Minor notes (no action needed)
+
+1. **Head-only trimming edge case.** When a cue has at least 8 min both before and after the coffee cue, only the head is kept (`coffeeNarration.ts:31`). Coffee slots fall on :00/:30 and storage cues start at :58/:28, so the head is always about 2 min. As a result, this case can't currently occur.
+2. **`coffee-brain.png` doesn't show the brain narration.** It's taken at 10:25, after that cue has ended, so the guide reads "The next explanation begins with the next event". The story panel ("More awake. Same sleep need.") is correct. The brain narration itself is shown in `coffee-390.png`. If you want the desktop artifact to show it too, capture it at about 09:50.
+
+I'm relying on your reported build, unit and browser runs and the PubMed checks. I didn't re-run them, because this was a read-only review.

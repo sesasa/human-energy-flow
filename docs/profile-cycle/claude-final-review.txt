@@ -1,0 +1,87 @@
+# Final Claude review: profile and optional menstrual-iron revision
+
+**Verdict: ready to ship. Nothing blocks release.** One small fix is recommended before release (P1 below). I did not run tests, builds or browsers. Everything below comes from reading the source, the logs and the screenshots.
+
+## What I reviewed
+- **Docs:** `MODEL.md`, `SOURCES.md` and my earlier `claude-proposal.txt`.
+- **Model code:** `profile.ts`, `config.ts`, `composition.ts`, `energy.ts`, `longTerm.ts`, `micronutrients.ts`, `labs.ts`, `labProjection.ts`, `diet.ts` (profile field).
+- **UI code:** `dietPanel.ts`, `nutrientPanel.ts`, `labChart.ts`, `dialogs.ts`, `profile.css`, `main.ts`.
+- **Tests:** `tests/profile-cycle.test.ts` and `tests/profile-browser.ts`.
+- **Logs:** `numerical.txt` (97/97 pass), `build.txt` (tsc + vite succeed), `browser-profile.txt`, `test-status.txt`.
+- **Screenshots:** navigation-over-time, navigation-day, female-anatomy-front, female-anatomy-back, profile-female-cycle, ferritin-heavy-cycle, profile-cycle-mobile, ferritin-cycle-mobile, navigation-mobile.
+- I did not open `sample_Labtest`.
+- **Caveat:** the logs have no timestamps, so I can't confirm the build and browser logs come after the keyboard-focus / disabled-cycle-input polish.
+
+## Verified correct
+
+**Iron bookkeeping and conservation**
+- Menstrual iron is subtracted from red cells (`micronutrients.ts:91-92`). Basal loss comes out of transport (`:97-98`).
+- Each day, the change in total iron equals absorbed minus basal minus menstrual. The residual counts menstrual loss once (`:108-116`). The separate ledger matches the per-day loss.
+- Test 78 checks this on every day for three years and checks that `atLimit` stays false.
+- At the start, the replacement demand works out to exactly zero, so nothing jumps on day 1.
+- Marrow replacement spreads each loss over about two weeks. With heavy flow, the biggest single day is about 12 mg against a cap of target/120 + 8. A single heavy day therefore can't trigger `atLimit` when stores are adequate.
+
+**Cycle model** (`profile.ts:23-34`)
+- The taper is normalized, so total loss per cycle is fixed whatever the bleeding duration. Test 76 covers this for 1/3/5/10 days, three start days and all cases.
+- Start-day alignment is correct. The browser check (start day 10, length 35 → first bleed at elapsed day 26) agrees.
+- Male and cycle-off profiles return zero loss.
+
+**Numbers and sources**
+- Iron per mL of blood: 0.45765 mg, giving 7, 14 and 37 mg per cycle.
+- Basal loss: 0.014 mg/kg/day. The deliberate male change to 1.05 mg/day is documented.
+- Nadler coefficients for both sexes and the 150/135 g/L hemoglobin assumptions match the paper.
+- Sensitivity cases are 0.8/1/1.3 × basal, paired with the low/representative/high category loss (`labProjection.ts:35`).
+- Test 79's central ferritin value equals the core solver's stores/8, so no display smoothing is applied.
+- B12, folate and vitamin D projections are identical with the cycle on or off (test 81).
+
+**Intake references** (`profile.ts:37-44`)
+- The age/sex values for iron, calcium, magnesium, potassium, zinc, vitamin C, D and ALA match the NIH ODS tables for adults aged 18–85.
+- The cycle does not add anything on top of the iron RDA.
+
+**Reference ranges** (`labs.ts:55-66`)
+- Ranges you enter always win over the defaults, including after age, sex or cycle changes (browser test lines 31–32).
+- Default labels follow sex and age. I checked how the Mayo numbers are wired in, but I could not check the Mayo catalogue values themselves.
+
+**Body composition and energy**
+- The −161 kcal female term is reachable from the UI.
+- The lean-gain ceiling scales as 2.2 kg × initial lean / 62.25 kg.
+- Female composition limits are 14–45% for long-term projection and 14–50% for input. Energy residual stays at 0 (test 75).
+- The female baseline is 54.75 kg lean / 20.25 kg fat (screenshot shows 54.8 / 20.3).
+
+**Profile flow and caching**
+- One function, `profileFromScenario`, builds the profile. It is used by `applyScenario` (`main.ts:233`) and `dietUI.setProfile` (`main.ts:303`).
+- The Apply path overwrites the profile (`dietPanel.ts:87`). Unapplied diet and lab drafts are kept, and their previews use the applied profile.
+- The projection cache key includes the profile and hemoglobin (`nutrientPanel.ts:67`).
+- JSON export includes both `menstrualCycle` and `diet.profile`.
+
+**Navigation**
+- `main.ts:221-225`: "Back to Over Time" restores the exact long-term position. Re-entering the same day restores its last day position or sprint phase.
+- Resetting on Apply (`main.ts:238`) matches the dialog text.
+- Focus moves to a visible control after each switch.
+
+**Screenshots**
+- **Desktop navigation:** Over Time has only the "Show Inside a Day" link. The day view shows Back plus Healthy day / Sprint session.
+- **Female anatomy:** front and back outlines differ while organ and muscle labels stay aligned.
+- **Cycle form:** clear. Inactive fields are hidden, the bleeding strip is readable, and the heavy-bleeding note shows.
+- **Ferritin chart:** the rose ticks sit below the plot, separate from the green band and the shading.
+- **Mobile (390 and 320):** no horizontal overflow (also asserted in the browser test). The three bleeding-level buttons and three cycle inputs fit, and the nav stacks properly.
+
+## P1 – recommended before release (small)
+1. **Sensitivity shading shows ferritin at 0 after a case has run out of stores.**
+   - `labProjection.ts:42-44` only checks the central case for depletion (`atLimit`). When the pessimistic case runs out, its state freezes at about 0.01 mg, so the lower edge of the shading drops to 0.
+   - You can see this in ferritin-heavy-cycle.png from about month 5. The mobile card also prints "Sensitivity 0–79 µg/L".
+   - This contradicts the model's own rule that values after depletion are not inferred. The heavy-cycle scenario makes it prominent.
+   - **Fix:** if any case has hit its limit by that day, end the lower shading at that point (or mark it). Show text such as "lower case reaches the model's depletion limit" instead of a numeric 0. Add a test that no finite sensitivity value appears after its case is at its limit.
+
+## P2 – polish
+2. **Ferritin legend wording.** The ferritin chart legend says "Food-response sensitivity" (`labChart.ts:16`). For ferritin the shading varies conversion, uptake, basal loss and cycle category. Use "Uptake/loss sensitivity" for ferritin.
+3. **Default female weight gain may look like a prediction.** At default settings the female example has a +141 kcal/day surplus on the unchanged reference week, which leads to about +10 kg over three years. This is correct for the stated design, but people may read it as a forecast for women. Suggestion: a short note in the profile preview or Over Time, e.g. "Same meals as before; the lower energy estimate creates a surplus."
+4. **Generic error for female body fat below 14%.** It currently reads "Check height and initial body-fat parameters" (`config.ts:21`). Name the female 14% minimum, since keeping custom values can produce this case.
+
+## P3 – optional
+5. The chart SVG's `aria-label` (`labChart.ts:16`) doesn't mention the bleeding-day ticks. Add "with modeled bleeding days marked" when there are events.
+6. A male scenario keeps its saved cycle settings, including enabled, and they come back if you switch to female. The checkbox is visible, so this is acceptable. A one-line note in `MODEL.md` would cover it.
+7. Re-run the build and the profile browser suite after the latest focus/fieldset polish, and keep the timestamped logs.
+
+## Conclusion
+The model is consistent, conserves iron, stays within its stated scope, and handles reference ranges and drafts correctly. It is usable on desktop and on 390/320 px mobile. It is ready to ship. I'd apply P1 first; it's a contained change in `labProjection.ts`.

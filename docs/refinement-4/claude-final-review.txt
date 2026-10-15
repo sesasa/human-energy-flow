@@ -1,0 +1,70 @@
+I've finished the review. The main problem is that the new viewer browser suite fails partway through, so several viewer behaviours you asked about have no passing evidence yet. The micronutrient model and the lab handling meet the brief: lab values are never turned into reserve percentages, and I found no diagnostic overclaims. I only read code and screenshots and ran nothing.
+
+## Must-fix
+
+1. **The viewer browser suite fails, so later checks never ran.** `artifacts/refinement-4/viewer-browser.txt` shows it failing at `tests/viewer-browser.ts:24`: `seek(1439.9)` on `#scrubber`, which has `step="1"` in day mode (`src/main.ts:87`). Playwright rejects the value as "Malformed value".
+   - Not verified as a result: chart click, drag and keyboard; shared playback; return position; the representative weekday menu; the one-off meal not repeating; mobile overflow.
+   - The `viewer-long`, `viewer-representative`, `viewer-mobile` and `viewer-mobile-chart` screenshots are taken after line 24, so they must come from an earlier run. They are stale evidence.
+   - Fix: use `seek(1439)`, then re-run the suite and regenerate the screenshots.
+
+2. **The trend label always says "slowly", even when the change is fast or barely there.** `storeTrend` (`src/model/micronutrients.ts:121-123`) only produces "Rising slowly", "Falling slowly" or "Nearly steady", based on the first 28 days.
+   - Folate with reduced uptake has about a 45-day half-time and falls quickly toward roughly 30/100, yet is labelled "Falling slowly".
+   - The headline also only reflects the first month. In `vitamin-d-food-only.png` it says "Rising slowly", but the current diet goes from 45 to 47/100 over a whole year, which is essentially flat.
+   - Fix: measure the trend over a longer window (or start vs 12 months) and scale the wording ("Falling", "Falling steadily", …).
+
+3. **Choosing "No known low status" hides the food experiments and the clinical note.** At `src/visual/nutrientPanel.ts:64` both are hidden whenever intent is `none`.
+   - Changing an assumption (reduced absorption, or vitamin D food-only) in this mode does not switch the intent. Setting a low starting reserve does switch it (line 48), so the behaviour is inconsistent.
+   - In that state there is no clinical note and no food comparison at all.
+   - Clicking "No known low status" also silently resets every assumption (line 36).
+   - Fix: switch to Hypothetical on any non-default assumption, or always show the food section.
+
+4. **An invalid lab entry leaves the old reading on screen.** When the input has an error, the observation is not updated (`nutrientPanel.ts:46`). The reading line (line 98) keeps showing the previous valid value and its range comparison, right next to the error message. The reading should say "Check the value" while an error is present.
+
+5. **The micronutrient chart labels are inconsistently sized and unreadable on mobile.** The chart's text scales with the chart width (`nutrientPanel.ts:22`).
+   - On desktop the axis labels are about 15px while the surrounding text is about 8px (`micro-baseline.png`).
+   - On a 390px screen the labels shrink to roughly 5px (`micro-mobile-trend.png`).
+   - Many captions ("First-week daily means", "Below model reference") are about 8px on every screen size, which is too small for a general audience.
+
+## Should-fix
+
+6. **In the representative-day view, the plate covers the "Lunch · Tuesday" label.** Visible in `viewer-representative.png` (the meal card on the left panel). The CSS needs checking, and the screenshot should be re-taken after fixing #1.
+7. **A tooltip appears over the anatomy in `viewer-sprint.png` with no hover.** It shows "Sprint power", probably left over from the earlier focus and Escape on `#row-aerobic`. Please check that `tooltipUI.refresh` doesn't reopen a tooltip for a row that has moved or been removed.
+8. **The four-pool body-stores watch has no screenshot**, even though it was a stated priority. Add one with a low-status scenario applied.
+9. **"Apply & view one year"** (`dietPanel.ts:77`) opens the 3-year chart at its start. Either label it "view over time" or open the One-year span.
+10. **One gap in the portion cap (`foodExperiments.ts:21`):** a food already on the plate is raised to the target without checking the food's maximum, while newly added foods are capped. If a maximum is ever below a target, the suggestion never counts as included and the meal is trimmed again on each click. This can't happen with today's targets, but it would be a latent stacking bug.
+
+## Optional polish
+
+- `viewer-running.png` shows glucose "Elevated" and insulin "Raised" during the run (probably an afternoon snack). The run caption says "even with less insulin", which reads as a contradiction.
+- The beef swap cuts potatoes from 450 g to 197 g to keep calories level, yet reports "+0.01 mg/day" absorbed iron. That is honest, but worth one sentence explaining that this is one dinner a week.
+- The header diet badge is hidden on mobile.
+- The representative day shows the nutrient watch for day N but the starting body. It is labelled, but a one-line note would help.
+
+## What meets the brief (from the code)
+
+- **Labs:**
+  - `simulateNutrients` never reads lab observations.
+  - Comparisons use only the limits the user supplies.
+  - Changing the unit clears the numbers.
+  - Calcium, magnesium and zinc are observation and intake only.
+  - The NIH notes are cautious.
+- **Distinct time scales:**
+  - Vitamin D (35-day buffering), folate (1.55% a day), B12 (0.1% a day) and iron are clearly different.
+  - The vitamin D background input of 6.3 µg/day is visible and can be removed.
+  - The vitamin D pool is explicitly not a serum half-life or a forecast of a 25-OH D result.
+- **Diet comparison:**
+  - The applied-diet baseline is compared against a separate draft that shares the same starting assumptions.
+  - Food suggestions use real portions and keep calories about level.
+  - Repeat clicks don't stack.
+  - Macros, absorption and pools are recalculated.
+- **Viewer timeline:**
+  - The chart and playback share one timeline position.
+  - The exact long-term position is remembered for the return.
+  - The representative day says it uses the starting body and is not a reconstructed history.
+  - A one-off day is excluded from week 2 onward through the settled-week simulation.
+
+## Assessment for a layperson
+
+The day viewer is clear and illustrative: the seated or eating figure with its caption, the anatomy placed higher, and two-column measures that change with the scene all work well. The micronutrient flow (starting point, lab result, model reserve, current diet, food experiment) is logical and careful.
+
+The main weaknesses are a lot of very small caveat text and trend wording that can mislead (#2). I would not call it finished until #1 is fixed and re-run, and #2–#5 are addressed. After that it is a strong, honest educational tool.

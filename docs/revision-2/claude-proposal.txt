@@ -1,0 +1,128 @@
+# Revision 2: critique and refinements
+
+The proposal is sound. The narrative (ATP protected, capacity falls while fuel remains, PCr resynthesis depends on oxygen) is correct and well chosen. The main risks are a few understated physiological magnitudes, too many sprint-mode rows that say the same thing, and an anatomical mismatch: the main sprint muscles are mostly on the back of the body, but the view is anterior.
+
+Each point below is tagged **Fact** (supported by literature, but check the figures against the cited papers before encoding them) or **Model** (a design choice).
+
+## Physiology
+
+**1. Widen the ATP floor and demote ATP from a full bar.**
+- **Fact:** Biopsy studies of repeated short sprints report net muscle ATP falls of roughly 10–30% by the late reps, with IMP and ammonia accumulating. ATP never empties. A 92–100% band understates this.
+- **Model:** Let ATP drift to about 75–85% by late reps. It moves too little to deserve its own bar, so show it as a caption on the energy-source bar instead, e.g. "ATP held ≈ 85%." This keeps the teaching point and frees a row.
+
+**2. Make the stacked energy-source bar show total turnover, not just shares.**
+- **Fact:** In 10×6 s / 30 s (Gaitanos), glycolytic ATP production fell several-fold from sprint 1 to sprint 10, while power fell only about a quarter. The aerobic share rose substantially.
+- **Model:** A bar normalized to 100% hides two things: the huge difference between sprint and walk, and the rep-to-rep decline. Use these encodings:
+  - Bar *length* = total ATP turnover relative to the rep-1 peak.
+  - *Segments* = PCr / glycolytic / aerobic shares.
+- During walking the bar becomes short and almost entirely aerobic. There is no PCr segment then, because PCr is being rebuilt using aerobic ATP. That visual alone teaches "PCr is a buffer, not free energy."
+
+**3. Merge "stress" and "fatigue" into one row.**
+- **Fact:** Sprint fatigue has several causes (PCr availability, Pi and H⁺ accumulation, K⁺ handling, neural drive). No single measurable "stress" quantity exists.
+- **Model:** Keep both state variables, but show one **Fatigue** bar in two tones:
+  - a fast component that mostly clears within the 30 s walk;
+  - a slow component that ratchets up across reps and persists for hours.
+- Two separate bars that both rise in sprints and fall in walks would be redundant with each other and with Power.
+
+**4. Combine oxygen and heart rate into one row, and model walking as a cost.**
+- **Fact:** VO₂ and HR rise across reps, lag the work bouts, and stay elevated during recovery. Late reps can approach a high fraction of VO₂max.
+- **Fact:** Active recovery has been reported to impair PCr resynthesis and repeated-sprint performance compared with passive recovery, because walking competes for oxygen.
+- **Model:**
+  - Show one row, **Oxygen uptake (% VO₂max)**, with HR as an inline bold number (e.g. "168 bpm"), using an assumed HRmax noted in the parameter file.
+  - Add a small walking penalty to the PCr recovery rate. This supports the narrative that "walking doesn't power recovery; oxygen does."
+
+**5. Calibrate to the 10-rep evidence and treat reps 11–20 as extrapolation.**
+- **Fact:** The direct anchor is 10×6 s / 30 s. PCr recovery after short sprints has a fast component with a half-time of tens of seconds, so 30 s gives incomplete restoration. PCr does not refill *during* the 6 s sprint.
+- **Model:**
+  - Fix the check wording to "PCr trough and partial refill within each 36 s cycle."
+  - Encode explicit calibration targets as tests: power decrement by rep 10, glycolytic collapse, and a lower pre-sprint PCr in late reps.
+  - Make reps 11–20 approach a plateau rather than declining linearly.
+  - Note in the "Why?" panel that reps 11–20 are extrapolated.
+
+**6. Fix the day-integration pitfalls.**
+- **Facts:**
+  - Blood glucose often *rises* during and shortly after high-intensity work (catecholamine-driven hepatic output with suppressed insulin). Do not show a dip.
+  - Excess post-exercise oxygen consumption (EPOC) after sprint intervals is modest. Do not inflate the "afterburn."
+  - Glycogen resynthesis is fastest in the first hours after exercise when carbohydrate is available.
+  - Depletion in sprints is concentrated in type II fibres.
+- **Model:** Define a one-way handoff from the sprint engine to the day model at session end:
+  - PCr
+  - fast fatigue
+  - slow fatigue
+  - active-muscle glycogen
+  - session energy cost
+
+  PCr normalizes within minutes, slow fatigue over hours, and glycogen only with intake. Keep a single source of truth for glycogen so the two engines can't disagree.
+
+## Anatomy
+
+**7. Get depth and placement right, and fade layers by mode.**
+- **Facts:**
+  - Kidneys are retroperitoneal, so they sit behind the bowel in an anterior view, and the right kidney is slightly lower.
+  - The heart apex points left. The aortic arch curves left, and the inferior vena cava (IVC) runs to the right of the aorta.
+  - The right lung has 3 lobes; the left has 2, with a cardiac notch.
+  - The liver sits largely under the right ribs.
+  - Pulmonary arteries carry deoxygenated blood and pulmonary veins carry oxygenated blood. Color vessels by oxygenation, not by artery/vein.
+- **Model:** Overlapping semi-transparent layers turn muddy, so use mode masks:
+  - Sprint mode: viscera at about 15% opacity; leg muscles, heart, lungs and leg vessels at full opacity.
+  - Meal mode: the reverse.
+
+**8. Solve the posterior-muscle problem explicitly.**
+- **Fact:** The prime sprint movers (gluteus maximus, hamstrings, gastrocnemius/soleus) are mostly posterior. The anterior view honestly shows quadriceps, adductors, tibialis anterior and a hint of iliopsoas.
+- **Model:** In sprint mode only, add a small posterior lower-body inset using the same color scale. Use one muscle encoding, PCr lightness, because it gives a visible rhythm of draining and refilling each rep. Fatigue stays on the right panel; don't encode two variables in muscle color.
+
+## UI
+
+**9. Fix the row order and use exact emphasis rules.**
+
+Sprint-mode rows, top to bottom, never reordered:
+1. **Available power** (main row)
+2. PCr
+3. Muscle glycogen
+4. Fatigue (two-tone)
+5. O₂ uptake + HR
+6. Energy-source bar
+
+Emphasis rules:
+- At most two emphasized rows at a time. Emphasized rows get a 2 px accent border and full contrast; all others drop to about 55% opacity.
+- **Sprint phase:** Power + Energy sources.
+- **Walk phase:** PCr + O₂/HR.
+- **From rep 8 onward, during walks:** Fatigue replaces O₂/HR.
+- **Power:** solid fill when delivered (sprint), hollow outline when only "available" (walk).
+- **Glycogen:** sits next to Power, so "fuel remains, power falls" is visible at a glance.
+
+Units, labelled on each row:
+- Power: % of rep-1 peak
+- PCr: % of resting
+- Glycogen: % of pre-session
+- Fatigue: 0–100 index
+
+No pulsing animation. Emphasis transitions are instant when reduced motion is set.
+
+**10. Remove duplicate controls and make time compression honest.**
+- Rep counter and countdown appear only in the bottom strip, in large type, not also on the left. The left panel keeps scene name, at most 3 keywords, and "Why?".
+- Make strip widths proportional to time: sprints are thin bright slivers (1/6 of each cycle), with warm-up and cooldown segments at the ends.
+- Show a speed badge at all times (e.g. "Sprint 1× · Walk 3×"), because a changing clock rate distorts how long things feel.
+- Clicking a rep jumps to its start using per-rep state checkpoints. This keeps seeking deterministic without re-simulating from 16:00.
+- The full-day view collapses to a thin timeline above the strip.
+
+## Recommended final layout (Intense exercise day, interval phase)
+
+```
+┌───────────────┬──────────────────────────────┬─────────────────────────┐
+│ Sprint 7 of 20│                              │ AVAILABLE POWER  78% ▓▓▓│ ← emphasized (sprint)
+│ • max intent  │     Anterior body (large)    │ PCr              41% ▓▓ │
+│ • PCr draining│   viscera faded, legs/heart/ │ Muscle glycogen  86% ▓▓▓│
+│ • aerobic ↑   │   lungs/vessels at full;     │ Fatigue   ▓▓▒▒░░   52   │ (fast/slow tones)
+│ [Why?]        │   muscle lightness = PCr     │ O₂ 74% VO₂max · 168 bpm │
+│               │          ┌──────────┐        │ ATP sources ▓▓▓▒▒░░     │ length = turnover
+│               │          │posterior │        │  PCr/Glyc/Aer           │
+│               │          │legs inset│        │  ATP held ≈ 88%         │
+│               │          └──────────┘        │                         │
+├───────────────┴──────────────────────────────┴─────────────────────────┤
+│ day: ─brkfst──lunch──[16:00 session]──dinner──sleep─   (collapsed)     │
+│ [warm-up]▌░░░▌░░░▌░░░▌░░░▌░░░▌░░░▐█▌░░░ … ▌░░░[cooldown]  0:04 · Sprint 1× · Walk 3× │
+└────────────────────────────────────────────────────────────────────────┘
+```
+
+Normal and long-term modes keep the same three-column frame. Only the right-panel row set and the body layer masks change, so switching modes doesn't move anything the user has learned to look at.

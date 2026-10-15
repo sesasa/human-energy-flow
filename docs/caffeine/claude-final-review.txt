@@ -1,0 +1,35 @@
+I reviewed the code and all five screenshots without editing anything. **Verdict: ready to ship for the default 09:30 path and the settings you tested.** The pharmacokinetics are correct, the wording stays carefully inside the evidence, and the coffee code is genuinely separate from the existing day model. The two real defects are timing conflicts that only appear when the user picks other coffee times. Neither one gives wrong biology, but both make the story panel or narration contradict or drop meal and mental-work explanations.
+
+## Defects
+
+### Medium
+
+**1. The coffee story always replaces the meal story, so some time choices hide meals.** `src/main.ts:196-198`
+- `coffeeStory` takes priority over `showMeal` with no conditions. The coffee story panel stays up during 0–75 min after the cup and again at 180–205 min.
+- Coffee at **10:00** (a valid work slot): the "effect fades" scene runs 13:00–13:25. That replaces the lunch title, the plate cameo and the macros at the moment lunch starts. Meanwhile the voice is reading the lunch cue, because the narration's clearance cue avoids meals but the visual scene doesn't.
+- Coffee at **08:00** (allowed because `coffeeSlots` includes `'meal'`, `src/model/caffeine.ts:22`): breakfast is replaced for 75 minutes. Coffee at 07:30 or 11:00 overlaps parts of the breakfast or lunch story.
+- Suggested fix: let the meal story win, or fall back to coffee only when there's no meal candidate. Also derive the clearing scene's time from the actual `coffee-clearing` cue, not a hard-coded 180–205 min (`src/visual/coffee.ts:42`).
+
+**2. Coffee cues delete whole existing narration cues instead of trimming them.** `src/engine/coffeeNarration.ts:28-32`
+- When a cue starts before the coffee cue and ends after it, the code keeps only the part before the coffee cue. If that part is shorter than 8 minutes, the whole cue is dropped and the tail is always lost. This is the clash the consultation warned about, and the comment "Keep substantial neighboring explanations" doesn't match what the code does.
+- Coffee at **09:00**: the breakfast storage cue (about 08:58–09:40) starts 2 minutes before `coffee-drink` and is removed completely.
+- Coffee at **10:00**: `mental-work` (10:00–10:20) is pushed to 10:12–10:20 by `coffee-drink`. `coffee-brain` (from 10:15) then leaves only a 3-minute head, so the cue is dropped. The brain's mental-work explanation disappears on exactly the morning where coffee makes it most relevant.
+- Suggested fix: keep the tail when it is at least 8 minutes, or move the coffee cues into free gaps instead of cutting existing ones. Add tests for 09:00 and 10:00; `tests/caffeine.test.ts:72-81` only covers 09:30 and 20:00.
+
+### Low
+
+3. **During drinking the Brain rail is highlighted while the anatomy focuses on digestion.** `src/engine/coffeeNarration.ts:33` always sets `system:'brain'`, including for `coffee-drink`, whose focus is `'digestion'`. You can see this in `coffee-break.png`. Pass the system per cue.
+4. **The screenshots are older than the code.** `coffee-brain.png` shows "Half of peak ~15:38" and `coffee-evening-residual.png` shows "~02:08". The current code rounds these to 5 minutes (`src/visual/coffee.ts:36`), so it should show ~15:35 and ~02:05. Regenerate the screenshots before archiving them as final.
+5. **"Sleep shaded in violet" doesn't match what's on screen.** At `rgba(161,151,205,.10)` (`coffee.ts:10,15`) the sleep band looks dark grey in every screenshot. Either raise the opacity or change the note to say "shaded".
+6. **The clearance phase points at the wrong focus target.** The scene and cue use `'stores'` (`coffee.ts:46`, `coffeeNarration.ts:42`), which is the glycogen view of metabolism, while the text says "Liver clearing caffeine". A liver-specific target would fit better if one exists. Cosmetic.
+7. **The exported coffee time is hard to read.** `dailyCoffee.minute` is minutes after 06:00, and it keeps a stale value when the cup is unticked. A `clock:"09:30"` field would make it readable. There's no import path anywhere, so export-only is consistent with the rest of the app.
+
+## Checked and correct
+- **Kinetics:** the absorption/clearance formula and the equal-rate special case are right. With 90 mg the body peak is about 80 mg at about 52 min, and about 16 mg remains at 22:00, which matches the screenshots. The 180 mg peak (about 160 mg, about 165 with the 8 h band) fits the 0–200 axis. The 2/8 h band is correctly ordered.
+- **Sleep pressure:** the periodic solution matches between 06:00 and the next 06:00. The sleepiness signal never exceeds pressure and returns to it as caffeine clears, so there's no invented crash. The gap during sleep and the "Scheduled, not predicted" readout work.
+- **Separation from the existing model:** coffee only reaches the activity, plots, narration and body view through display code. `simulateDay`, the energy ledger and the diet are not touched, and a test covers this.
+- **Settings changes:** `rebuildCoffee` clears the chart and narration keys, cancels speech and keeps the current timeline position. It also runs after scenario and representative-day changes, and moves an invalid time to the nearest valid slot.
+- **Wording:** "blocks some adenosine receptors", "does not remove adenosine or restore missed sleep", "no fixed finish time", and no heart-rate or calorie effects. The sleep residual sentence is suitably hedged. The 20:00 screenshot shows the 71 mg bedtime sentence alongside a scheduled sleep that is not presented as a prediction.
+- **Scope labels:** single cup, illustrative index, no exact heart-rate or sleep prediction, and no tea or cola caffeine. All are clearly labelled; the Fast-food lunch contains cola and is covered by the "weekly menu not counted" text. These are limitations, not defects.
+- **Mobile:** at 390 and 320 px the followed plot is the caffeine card, the narration matches the `coffee-brain` cue at 09:50, the controls wrap cleanly, and there's no Guided button or "Inside this day" shortcut.
+- **Sources:** the EFSA figures (about 90 mg per cup, half-life about 4 h with a 2–8 h range) match `MODEL.md`. I did not check the PubMed IDs for White 2016, the PET occupancy study, Gardiner et al. or the haemodynamics study. Open each link once to confirm it matches its description.

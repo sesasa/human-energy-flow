@@ -1,0 +1,28 @@
+**No new blockers. All of the fixes are correct. My final review's verdict stands, and P1, P2.2–2.4 and P3.5/P3.7 are resolved.**
+
+**P1: ferritin sensitivity after depletion (fixed)**
+- `labProjection.ts:45-49`: when either side case reaches `atLimit`, the code records `sensitivityLimit` once and sets `low`/`high` to null from that day on. The central value keeps going. Central depletion is still checked first (`:43`), so if every case runs out on the same day, nothing is shown.
+- Day 0 keeps `low=high=measured`, so the shading starts at the entered result.
+- The withholding is permanent: once a side case stops, the shading doesn't come back even if that case recovers. That's the conservative choice and matches the code comment.
+- "Lower"/"Upper" names each case by its assumptions, not by its value on that day. With a very low starting value, the "Upper" case (conversion 6) could run out first. The message would still be accurate.
+- `labChart.ts:12-14`: the shading only uses bounded points and always includes `lastBound`, so it ends exactly at the last supported day. Test 85 checks this (max x = (day−1)/365·600). If only one point is left, no path is drawn.
+- `nutrientPanel.ts:68-69`: "Sensitivity beyond model scope" replaces the numeric range, and the limit message appears as its own scope note. Nothing renders as `0–N`.
+- Tests: test 85 checks that the central series continues, that `low`/`high` are null from the exact limit day on, where the shading ends, and that there's no NaN or undefined. `lab-projection.test.ts:33-34` and `:84` check the same invariants in general.
+
+**Legend and aria label (fixed)**
+- `labChart.ts:15,19`: the ferritin chart now says "Uptake/loss sensitivity". The aria label adds "with modeled bleeding days marked" when there are bleeding events, and a note when the shading ends early. Both are asserted in test 85.
+
+**Energy preview (fixed)**
+- `main.ts:286`: it averages `energyBudget(scenarioForDay(draft, day), …)` over the applied week. It passes `i===6` as the light Sunday, the same rule the long-term run uses (`main.ts:131`). Meals aren't changed, and the text says "illustrative scenario, not a personal forecast". The browser test checks "1,508" and "surplus".
+- One small thing I didn't check: the guard on `:281` covers weight, height and body fat but not age. If the age field can be empty while the form is open, the preview could show "NaN kcal". This is cosmetic only, because validation still blocks Apply.
+
+**Body-fat error message (fixed)**
+- `config.ts:22` now names "14–50% for females" or "6–50% for males" and calls them model limits. Test 83 covers it.
+
+**Logs**
+- `numerical.txt`: 98/98 pass, including the new test 85.
+- `build.txt`: `tsc --noEmit` and `vite build` both pass.
+- `browser-profile.txt` and `test-micronutrients.txt` both pass.
+- All four logs are timestamped 2026-10-06 14:11 UTC. I didn't compare those times with the source files' modification times. As you asked, I ran nothing myself.
+
+**Still open, optional:** P3.6, a one-line `MODEL.md` note saying a male scenario keeps its saved cycle settings.

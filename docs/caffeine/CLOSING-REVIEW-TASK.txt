@@ -1,0 +1,16 @@
+Closing review of the corrected coffee feature. READ ONLY. Do not edit files or use other agents. Please inspect the actual corrections and updated screenshots and give a concise final verdict, with any remaining material findings.
+
+Your previous review: docs/caffeine/claude-final-review.txt. All two medium and five low findings have now been addressed:
+- main.ts: meal stories/cameos win over coffee; the clearance scene follows narrator.current.id === 'coffee-clearing', not a hardcoded elapsed window.
+- coffeeNarration.ts: an overlapping existing cue keeps a substantial head or tail; otherwise its sentences are shared with the drink cue. The brain cue finds a free interval rather than cutting the preserved explanation again. Drink uses digestion; clearance uses metabolism/liver.
+- coffee.ts: sleep shading described neutrally; explicit liver focus; times rounded to five minutes.
+- JSON export includes dailyCoffee.clock. Retaining disabled cup settings supports reenabling them.
+- coffeeForSchedule resolves invalid initial as well as edited schedules; the accessible activity label also says DRINKING COFFEE.
+
+Important correction to your original example: under the actual current seven-day Healthy menu, the schedule's first work block is at 07:00, not 10:00. Meal slots cause the scheduler to allocate some work early. We verified the runtime schedule and test actual coffee/work overlap at 07:00 (mental-work retained 07:12–07:20), plus 09:00 breakfast-storage overlap, 08:00 simultaneous breakfast, and 10:00 cup/13:00 lunch. There is correctly a coffee-brain cue at 10:15 for a 10:00 cup; no original mental-work cue existed there. The regression tests now assert the actual overlapping cue is moved to the preserved tail, not merely present somewhere in the day.
+
+Read src/engine/coffeeNarration.ts, relevant main.ts sections, src/visual/coffee.ts, src/model/caffeine.ts and tests/caffeine.test.ts as needed. Updated screenshots: artifacts/caffeine/coffee-break.png, coffee-lunch-preserved.png, coffee-brain.png, coffee-evening-residual.png and coffee-390.png. Please inspect at least the lunch and coffee screenshots.
+
+Validation: production build passed; all 141 unit/model tests passed; coffee and guided browser suites passed after corrections. Earlier browser, viewer and daily-body regression suites also passed. Coffee browser verifies all corrected meal/work timings, playback, speech synchronization, skip/time/dose, model isolation, export, responsive layouts and reduced motion. Primary PubMed links in MODEL.md were independently opened and confirmed against their descriptions (White 27100333, receptor occupancy 22966134, sleep trial 39377163, homeostasis 6696142, hemodynamics 2045756).
+
+Avoid another broad redesign. Report any actual remaining defect or misleading claim; otherwise confirm the corrected feature is ready, with the documented single-cup/illustrative-effect limitations.

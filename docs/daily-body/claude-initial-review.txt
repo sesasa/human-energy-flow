@@ -1,0 +1,84 @@
+Code review is done. These are my recommendations; I made no edits and ran nothing.
+
+# Part 1: The body resets on daily views
+
+## Cause
+- `render()` sets `adaptation` only in long mode (`src/main.ts:129`). Then `BodyView.update` falls back to `person.weight_kg` and `body_fat_fraction` (`src/visual/body.ts:20`), so the outline goes back to the starting body.
+- `setDayContext` (`src/main.ts:78-86`) takes the day and the sprint from `weekSimulation` or `settledWeek`. Both are built from the starting `scenario`. Mass also affects liver capacity, glycogen targets and protein support (`day.ts:66,68,109,112`; `dietSimulation.ts:33`), and resting HR affects `day.ts:69,99` and `sprint.ts:34,71`. So the daily view also runs at the starting body's physiology.
+- You're right that `BodyView`'s `long` argument can't simply be passed through. It forces `--pulse-speed` to resting HR (`body.ts:35`), which would freeze the exercise heart rate.
+
+## Proposed fix
+**1. Build a representative-body scenario** (in `main.ts` or a small helper in `longTerm.ts`):
+```ts
+function bodyScenario(base:Scenario,a:AdaptationState):Scenario{
+ const s=structuredClone(base);
+ s.person.weight_kg=a.weight;s.person.body_fat_fraction=a.fat/a.weight;
+ // energyBudget scales movement by weight/person.weight_kg; keep the long-view scaling.
+ s.activity.ordinary_movement_kcal*=a.weight/base.person.weight_kg;
+ s.model.resting_hr_bpm=a.restingHR;return s;}
+```
+The movement scaling matters. Without it, `energy.ts:14` would compute ordinary movement at the starting amount, while long mode's `energyBudget(longScenario, adaptation.weight)` scales it by weight. "This day's budget" would then disagree between the two views.
+
+**2. In `setDayContext`**, when `n>0`:
+- Take `snapshot=sampleLongTerm(longStates,n)` at the integer day, so the body matches the "day N" label.
+- Run `sim=simulateDiet(bodyScenario(scenario,snapshot), n>=7&&dietApplication.once?{...dietApplication,once:undefined}:dietApplication)`.
+- Keep `day`, `dayScenario` and `intense` coming from that `sim` as they do now.
+- Cache the result by `n`, replacing the single `settledWeek` cache, and clear it in `applyScenario` (`main.ts:239`).
+- When `n===0` or `null`, keep `weekSimulation` and `baseIntense` as today. Day 0 of the long timeline is the starting body, so the two stay consistent.
+
+**3. Split body shape from resting HR in `BodyView.update`.** Add a trailing `leanGain=0` parameter:
+- `mass=long?.weight??person.weight_kg`, `fat=long?.fat??mass*person.body_fat_fraction` (unchanged).
+- Muscle scale uses `long?.leanGain??leanGain`.
+- Pulse uses `long?long.restingHR:s.hr` (unchanged). Because the daily view passes `long=null`, exercise HR stays live.
+
+**4. In `render()`:**
+- `body.update(s,adaptation,…,dayScenario.person,snapshot?.leanGain??0)` in day modes. Long mode keeps `scenario.person`.
+- `activityView.update(…,dayScenario.person,…)` (`main.ts:166`). `ActivityView` already keys its shape on weight and fat (`activity.ts:309-312`).
+- `normalMetrics(…,dayScenario.model.resting_hr_bpm)` at lines 174 and 178.
+
+**5. Labelling:** append "· modeled body X kg" to `#day-context-label` (`main.ts:103`). Leave `#person-label` showing the starting profile. That keeps it clear this is a representative day at the modeled body, not a reconstructed historical day.
+
+Because `person` is constant for the whole sampled day, composition stays stable within the day. The diet inputs, the activity schedule, `longPosition` (exact return), the one-day override (`n>=7` drops `once`), front/back view and the animations are all unchanged.
+
+## Risks
+- **Cost:** `simulateDiet` can run up to 30 warm-up weeks. It runs once per navigation and is cached, but measure it.
+- **Age:** long mode uses `age+elapsed/365` in its budget and the daily view won't. That's at most about 15 kcal/day. You could also pass age in, but keep the displayed profile age unchanged.
+- **Limit state:** if `snapshot.atLimit` is true, the frozen body is still used. That's acceptable, but consider showing a note.
+- **Existing tests:** `tests/viewer-browser.ts:43` checks that the exported `person` is unchanged. This holds, because only a clone is changed.
+
+## Tests
+- Long view at day ~700 on a surplus or training diet, then "Inside this day": `#body-svg[data-lean-width]` and `data-fat-fraction` match the long view and differ from day 0. They stay constant while scrubbing 0→1440 and during intense mode.
+- During the run or sprint, `#hr` exceeds the snapshot's resting HR and `--pulse-speed` changes.
+- `#day-context-reset` brings back the starting outline. "Back to long" returns to the exact fractional `longPosition`.
+- `#spent-value` for representative day N is within a few kcal of the long view's budget for day N.
+- One-off diet: day 0 shows the override, and day ≥7 uses the settled week at the adapted body.
+- `applyScenario` clears the cache: after a profile change, the representative day uses the new body.
+
+# Part 2: Text appearing over the ATP bar while the sim runs
+
+The user hasn't said what the text is yet. But since `render()` hard-codes the `atp` tooltip's "next" line (`main.ts:183`), it is most likely the educational tooltip for `metric-atp` or a nearby row.
+
+## Concrete causes
+1. **Hover opens without the user moving.** During playback the layout changes under a stationary pointer:
+   - `#atp-sources` is unhidden (`main.ts:189`).
+   - `updateMetrics` calls `replaceChildren` whenever `metricKey` changes (`main.ts:110`). That happens on every focus or scene change (`normalMetrics(s,story.focus,…)`) and when switching to sprint metrics.
+
+   Chromium sends synthetic `pointerover` events after layout changes, and `tooltips.ts:10` opens on any `pointerover`. A row sliding under the cursor therefore pops its tooltip. `place()` puts it beside or below the row, which is over the ATP panel.
+2. **Stale tooltip across navigation.** `setPhase` and `setDayContext` never call `tooltipUI.hide()`; only `applyScenario` does. A pinned or hovered metric row stays open because cached rows remain connected, so the check at `tooltips.ts:19` doesn't close it. It then refreshes every 800 ms with live text (`render()` → `refresh`, `main.ts:188`).
+
+## Recommended behavior (keeps the tooltips)
+- **Hover opens only on real pointer movement.** Record `clientX/Y` on `pointermove`. In the `pointerover` handler, open only if the position differs from the last recorded one, or switch to opening on `pointermove` inside a `[data-tip]`. Synthetic layout-driven events don't change coordinates, so they're ignored.
+- **Close on structural changes.** Add `dismissTransient()`, which hides unless the tooltip is pinned or the anchor is `document.activeElement`. Call it:
+  - when `metricKey` changes in `updateMetrics`;
+  - in `updateLayout` when `layoutKey` changes;
+  - in `setPhase` and `setDayContext`.
+- **Keep focus and tap as they are.** `focusin` and click-to-pin (`tooltips.ts:12,14`) stay unchanged. Clicking Play already unpins (it's a click outside any `[data-tip]`, which hides the tooltip).
+
+## Tests
+- Hold the mouse still over the metric list, press Space to play into the sprint (ATP sources appear and rows reflow): `#educational-tooltip` stays hidden.
+- Moving the mouse onto `#row-atp` shows it. Moving away hides it after about 180 ms.
+- Focusing `#row-aerobic` still shows "not a measured share" and Escape closes it. The existing check at `tests/viewer-browser.ts:19` still passes.
+- Pin a row with a click, then switch Day → Intense or Inside-day: the tooltip closes. Pin it, then click Play: it closes.
+- Touch: a tap pins and a second tap closes. Synthetic `pointerover` from touch is still ignored.
+
+I'm ready for the final review once the fixes are in.

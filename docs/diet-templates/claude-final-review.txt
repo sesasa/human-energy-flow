@@ -1,0 +1,66 @@
+I found one concrete blocker: after applying a one-day override from a different template, the diet panel stays stuck showing "Draft · not applied". I didn't edit or run anything, so the claims below come from reading the code and the screenshots. The 107 numerical tests and 8 browser suites you mentioned don't cover this case.
+
+## Blocker
+
+**A one-day override that uses a different template is never shown as applied** (`dietPanel.ts:19`, `:32`, `:92`). It happens when the active week uses one template and you apply a single day from another, e.g. a Low variety week with one Fast food day.
+- On open (`:19`), on Discard (`:92`), and after Run (the draft isn't rebuilt), the draft holds the whole Fast food week.
+- `pending()` (`:32`) compares every day of that draft against the Low variety week (`app.week[i]`). Six days always differ.
+- So straight after Run, the header shows "Diet · draft ＋" and the panel shows "Draft · not applied". Discard is enabled, but it rebuilds the same state, so the flag never clears.
+- `templates-browser.ts:24` exercises this path but only checks the exported JSON, not the draft state.
+
+**Fix:** keep a `baseline` week and compare the draft against it instead of `app.week`. Set it to a copy of the draft whenever the draft is built from applied state (on open, after Run, on Discard). Then add a browser assertion that the draft state reads as applied after a one-day Run with a different template.
+
+## Fix before calling Healthy "unchanged"
+
+**Healthy's menu is pinned, but its outputs aren't.** The menu data is verified: the original week, the 28 original foods, and `dietTemplates.healthy === referenceDiet` are all checked against pre-change hashes. Two physiology changes can still shift what Healthy produces:
+- **Fatigue clearance:** `day.ts:68` scales it by that single day's food energy ÷ expenditure. Any Healthy day that eats less than it burns now recovers more slowly. The Monday screenshot shows 2,603 in / 2,621 out, so the shift is small but not zero.
+- **Lean loss:** `longTerm.ts:34–39` takes lean tissue whenever the seven-day average balance is negative, and Healthy can fall into that range.
+- No test compares Healthy's day or long-term outputs with the pre-change build; `model.test.ts` only checks broad bounds.
+
+**Fix:**
+- Base the fatigue support on the seven-day average energy ratio. That matches the averaging the lean rule already uses.
+- Add a test that compares Healthy's `simulateDiet` states and `simulateLongTerm` results with saved pre-change output. If they're meant to differ, say so in MODEL.md.
+
+## Minor
+
+- **The projection stop doesn't stay stopped** (`longTerm.ts:43–46`). An out-of-range day freezes the state and moves on, but a later day can start the projection again. Energy still balances, but MODEL.md says the projection stops. Fix: once a run is out of range, freeze every remaining day.
+- **SOURCES.md is missing spaces** between numbers and words: "all37", "per100g", "Hall2007", "prior2500µg", "fraction0.4".
+- **Mobile layout:** the three stacked radio options plus two caption lines push the day tabs well down the screen (`templates-mobile.png`). A compact segmented control would fix this; it's optional.
+
+## Verified
+
+- **Healthy menu, source data, model limits:** see the first two items under "Fix before calling Healthy 'unchanged'".
+- **Source data:**
+  - All 9 new foods are from the same CoFID workbook.
+  - Missing values (`null`) stay unavailable and are never turned into zeros.
+  - Every authored portion is within its food's maximum.
+  - The new meats use the documented heme iron fractions (beef patty 0.4, chicken and sausage 0.3).
+  - Tea's effect on iron absorption is stated as not modelled.
+- **No category penalties or automatic deficiencies:**
+  - Templates contain only food quantities. Labels can't change physiology; tests check this for both the day and long-term models.
+  - Switching templates doesn't touch nutrient status choices or lab observations.
+- **Same person and activity:** both are unchanged across templates, and the day-level energy ledger closes, as tested.
+- **Labs:**
+  - Each result keeps its original food snapshot (`dietAtResult`).
+  - Numeric projections are withheld when the current or the at-result food data are missing for that marker.
+  - Large food changes return "Not estimated" for the lab value.
+- **Store fallback vs serum results:**
+  - The B12/folate store chart is a separate, labelled panel ("Percent of assumed starting stores—not a lab result…").
+  - It uses the fixed assumed starting stores, not the entered result.
+  - The 91% at 3 months and 69% at 1 year match 0.1% daily B12 loss with no B12 intake.
+  - The main timeline shows "Not estimated" alongside "Separate store model: depleting".
+- **Long-term model:**
+  - The Forbes/Hall lean-loss rule is applied to the seven-day average deficit, and fat takes the rest of each day's balance. Energy balances exactly, as tested.
+  - The `limited-over-time` screenshot looks plausible (−7.8 kg lean, −6.8 kg fat by day 92).
+  - The supported body-fat range stops the projection with "Projection limit reached".
+- **Day view and meal UI:**
+  - Chapters are built from meal times, with no lunch chapter for two-meal days, and the summary is written from the actual balance.
+  - Meal tabs are ordered by time (the Fast food snack at 15:00 sits before dinner), the meal index is clamped, and keyboard navigation follows the same order.
+  - "Daily routine" replaces "Healthy day" for the other menus.
+  - The plates show the bun, patty, fries and the cola/tea drinks.
+- **Drafts, Reset and export:**
+  - Each template's draft is remembered within the session, and Reset and Discard clear those drafts.
+  - Reset keeps already-applied labs.
+  - JSON export carries both the applied and draft template IDs.
+
+No sample patient data is imported. There's no file import path in `src`.

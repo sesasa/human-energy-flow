@@ -1,0 +1,35 @@
+I've made the neutral female anatomy in three of the four allowed files: `src/visual/bodyShape.ts`, `src/visual/body.ts` and `src/visual/anatomy.ts`. I didn't build or run anything, so it's untested; that's left for your build and test run. I didn't change `src/visual/activity.ts`.
+
+**How it works (`bodyShape.ts`)**
+- **Outline:** the female figure is the existing outline reshaped, so it has the same points in the same order. All organs, routes, particles, muscles, insulin rings and click/keyboard targets keep the same coordinates, as the earlier review suggested. Front and Back use the same reshaped outline.
+- **Female contour changes, before any fat is applied:**
+  - neck about 1px slimmer;
+  - shoulder cap up to 4px narrower, fading out by y≈240;
+  - waist up to 3.5px narrower (peak at y≈285);
+  - pelvis and upper thigh up to 6px wider (peak at y≈375, gone by y≈480).
+  - Hands, forearms, inner thighs, the head and the middle line of the body don't move. Breasts and other surface details are deliberately not drawn.
+- **Which fat reference is used:** fat softness (`fatSignal`) and `definition` are measured against the baseline for the same sex. For female that's `withBodyPreset(…female…, 'baseline')`, which is 75 kg at 27% fat at 175 cm, imported read-only. So the female baseline has zero softness and definition 1.
+- **Lean width:** still compares actual lean tissue with the male default. The female baseline therefore gets `leanWidth ≈ 0.938` (54.75 vs 62.25 kg lean). This scales `#body-tissues` as a whole, so organs and the clip area stay together. Combined with the contour changes, the female baseline ends up with narrower shoulders and waist and roughly the same hip width as the male.
+- **Where fat goes:** for the same amount of extra fat, the female figure puts a bit less on the belly and a bit more on the thighs (0.21 vs 0.26 belly weighting, 0.24 vs 0.20 thighs). This is a modest, authored teaching choice.
+- **New field:** `BodyShape` now returns `baseOutline`, the same-sex outline with no fat applied. The soft-tissue band is drawn against it, so the female contour differences aren't drawn as fat.
+- **Male unchanged:** for male the contour shift is zero, the weights are the original 0.26/0.20, the references are the default person (17% equals the old hard-coded 0.17), and `baseOutline` is the original outline. Male output should match the old code exactly.
+
+**`body.ts` and `anatomy.ts`**
+- The cached shape key now includes sex (`sex:height:mass:fat`). Two people with identical height, mass and fat but different sex therefore get different outlines.
+- The SVG has a `data-sex` attribute, set in the markup (default `male`) and updated when sex changes.
+- I added `anatomyLabel(sex, view)`. The `aria-label` now reads e.g. "Interactive educational anatomy, female body, posterior view" and updates on both view and sex changes. **This changes the male label too:** it now includes "male body".
+- I left the visible caption ("ANTERIOR · EDUCATIONAL ANATOMY") and the `viewBox` unchanged, so there's no new space at the top.
+- `anatomyMarkup(sex = 'male')` is backward compatible.
+
+**Limitations**
+- The muscle overlays are male-drawn. They are trimmed to the outline, so on the female figure the shoulder and oblique muscles get cut off by 2–4px at the narrower edges. At the wider pelvis there's a small gap between the gluteal muscle and the skin edge, which reads as tissue under the skin.
+- The fine skin contour lines (`.surface-contours`) are shared by both sexes, and the female width changes are small, fixed pixel amounts.
+- I didn't change the small activity figure. It already shows a ponytail for female, and adjusting its shape seemed unnecessary.
+- Nothing about the menstrual cycle affects organs, and I didn't touch the nutrition or energy models.
+
+**Suggested tests**
+- Female and male `bodyShape` outlines differ when height, mass and fat are identical.
+- The female baseline preset gives `fatSignal ≈ 0` and `definition = 1`.
+- Male outputs are unchanged.
+- The existing "x < 495" overweight bound passes for the female overweight preset (38% fat).
+- In the browser, check the female `data-sex` and `aria-label`, and that clicking organs works in both views.

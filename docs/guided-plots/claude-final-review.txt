@@ -1,0 +1,67 @@
+The revision is in good shape, with nothing that stops it shipping: I found no stale speech, no cue pointing at a missing plot or line, and no unsupported laboratory or "recovery" claims. The two most important fixes are tick labels that don't match the slider and plot cards that get swapped out during a drag.
+
+**Files changed during my review.** Root was still editing: `main.ts` and `narrationEvents.ts` changed at 21:53, `dialogs.ts` at 21:55 and `documentary.css` at 21:57. I re-read the changed parts and ran my last browser probes after 21:57, so the findings below apply to the current code. I didn't edit any project files and left `claude-final-review.txt` empty. Running `npm run test:guided` overwrites the PNGs in `artifacts/guided-plots/`, so I put back byte-identical copies of the originals (same content, new timestamps).
+
+## Fix soon (they mislead or break interaction)
+
+1. **The labels under the main timeline aren't at their real times.** `documentary.css:44-46` spaces them evenly (`justify-content:space-between`, `left:auto!important`). Measured at 1440 px in long mode:
+
+   | Label | Shown at | Actually at |
+   |---|---|---|
+   | 3 months | 21% | 8% |
+   | 6 months | 41% | 17% |
+   | Year 1 | 61% | 33% |
+
+   In `guided-long.png` the slider sits at month 8.2 but appears *before* the "6 months" label. Day and sprint modes have the same problem (Breakfast is shown at about 19% but happens at 8%). For a shared-timeline UI this is misleading. Fix: put the labels back at their real positions and hide or stagger them when they collide, or move them out from under the slider as a separate "Jump to" row.
+
+2. **Dragging or arrow-keying a plot into or out of the sprint window replaces the plot you're using.** In sprint mode, `render()` (`main.ts:199`) swaps between the five day plots and the five sprint plots as soon as the position crosses the warm-up start. I dragged the heart-rate plot from minute 500 towards 700: the drag stopped at 605, because the card holding the pointer was replaced. A keyboard user arrowing across the same boundary loses focus the same way. Fix: keep the current set of plots while a drag is in progress or a plot has keyboard focus, and swap on release. Or add a second set of focusable sprint plots.
+
+3. **Some cues tell you to watch a plot that's dimmed.** Each cue highlights only one plot (`cue()` helper in `narrationEvents.ts:16`), and in Guided mode every other plot dims:
+   - `exercise-start`: "Watch the muscle store alongside the rising heart rate" — heart-rate plot dimmed.
+   - `exercise-recovery`: "the heart rate begins to settle" — only the Recovery plot highlighted.
+   - `sprint-intro`: "while fatigue and available power change" — only Rapid energy highlighted.
+
+   Fix: let a cue highlight more than one plot (e.g. `heart:['hr']`).
+
+4. **Long-term left-panel text is fixed by date, not by what the model shows** (`main.ts:162`). With the fast-food week, fat rises by 17.6 kg over three years (+2.2 kg in year 3), yet the panel shows "Progress slows" and then "A steadier state.", with first key point "Gradual lean adaptation". Nothing claims recovery, but "Progress" reads as improvement while fat is climbing. Fix: base the title and key points on the actual fat/lean trend, as the narration's `balance-*` cues already do.
+
+## Refinements
+
+5. **Lab tooltip text is wrong.** `plotTips.ts:24` adds "from start" to every change, so lab tooltips read "−5 vs entered from start". Only add "from start" when the change isn't already relative to the entered value.
+6. **Some rail choices dim every plot.** Brain has no plot in any mode, and neither does Digestion in sprint or long mode. Micronutrients in long mode with labs entered also highlights nothing. Selecting one dims everything to opacity .72, which looks like nothing happened. Show a short "No plot for this system here" note, or leave the plots undimmed.
+7. **Dimming is barely visible.** At .72 opacity, highlighted and dimmed plots are hard to tell apart in `guided-meal.png`. A highlight border or a lower dim value would guide attention better.
+8. **Captions only appear when voice is on.** `main.ts:140` hides the narration panel whenever voice is available but off, so silent users never see the authored narration, and it isn't announced to screen readers. Add a separate captions toggle, or show captions by default.
+9. **Sprint mode doesn't always start at the warm-up.** The "Sprint session" button starts at the warm-up (`main.ts:216`), so the intro cue plays. Applying a new scenario (`main.ts:238`) and "Show day 1" (`main.ts:221`) start at the first sprint instead, skipping the intro. Make all three start at the warm-up.
+10. **Plot labels collide.** In every card the top y-axis label overlaps the legend row ("1.0" under "Glucose", "100" under "ATP"). The "Exercise" band label on the day heart-rate plot runs into the spike.
+11. **On mobile, plots are out of view during playback.** At 390 px the plots start at y≈1468 and the controls at y≈1224, so while narration says "Watch the glucose curve" the plot is off-screen. Consider a sticky strip showing the highlighted plot, or put the plots before the controls on narrow screens.
+12. **Applying a diet from the Stores tab jumps to the long-term view.** If the diet dialog was last left on the Stores tab, applying a template from the day or sprint view switches to Over Time (`dietPanel.ts:90`, `onViewYear`). That may be intended, but it's surprising mid-session.
+
+## Test coverage gaps (all suites are green, but these aren't covered)
+
+- No browser test changes diet, sex/cycle or lab selection *while narrating*. I probed this myself: diet changes cancel speech cleanly and there were no console errors.
+- Lab narration and the ferritin cycle markers are never exercised in the browser.
+- Nothing checks that timeline labels line up with the slider (finding 1), and nothing drags across the sprint boundary (finding 2).
+- Plot keyboard navigation isn't tested. My probe: End → day 1095, Left → 1094; it works.
+- The "first sprint stays inside its half" check in `guided-browser.ts` hard-codes minute 600 and samples once, after 500 ms.
+- The guided suite overwrites the committed screenshots on every run.
+
+## Checked and found sound
+
+- **Speech controller:** one sentence queued at a time, late callbacks rejected after pause/seek/speed/track changes, watchdog falls back to captions, pacing pins the clock inside the current cue and stops exactly at the next cue start. Tab-hide pauses; opening dialogs cancels or pauses.
+- **Cue/plot matching:** I generated every day, sprint, long and representative-day cue track for all 3 templates × male/female (heavy cycle, all four labs). No cue points at a missing plot or line.
+- **Narration matches the model:**
+  - Low-variety reaches the projection limit at day 158 (male) and 300 (female), and narration stops the body story there.
+  - Lean-loss wording appears only in deficits, which is the only case the model produces lean loss.
+  - Resting heart rate can only fall in this model, so "fairly steady" is never said about a rising curve.
+  - Labs outside the model's scope get "not estimated".
+  - Only selected labs are narrated or plotted.
+- **Units are labelled honestly:** glucose/insulin "Relative index 0–1 · not lab units"; recovery and oxygen support marked as indices; fuel mix described as a modeled share. Held values after the projection limit are labelled "Held at projection limit".
+- **Manual system choice:** persists across seeks and switching between Over Time and the day view, until Guided is pressed again.
+- **Results:** 129 unit tests pass; the guided browser suite passes against a local Vite server; no page errors in my probes.
+
+## Not verified
+
+- Real OS or browser voice quality and timing (every run used a stand-in speech service).
+- Screen-reader behaviour, and browsers other than Chrome.
+- The other eight browser suites; I didn't rerun them.
+- The physiology coefficients themselves, which predate this revision.

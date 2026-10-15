@@ -1,0 +1,35 @@
+{
+  "person": { "age": 35, "sex": "male", "height_cm": 175, "weight_kg": 75, "body_fat_fraction": 0.17, "fitness": "moderately_fit" },
+  "nutrition": { "protein_g": 130, "carbohydrate_g": 325, "fat_g": 87 },
+  "meals": [
+    { "hour": 8, "fraction": 0.28, "name": "Eggs, toast & fruit", "kind": "breakfast" },
+    { "hour": 13, "fraction": 0.36, "name": "Chicken, rice & vegetables", "kind": "lunch" },
+    { "hour": 19, "fraction": 0.36, "name": "Fish, potatoes & greens", "kind": "dinner" }
+  ],
+  "activity": {
+    "ordinary_movement_kcal": 350,
+    "exercise_start_hour": 16,
+    "exercise_minutes": 60,
+    "run_distance_km": 3,
+    "run_speed_kmh": 10,
+    "running_met": 9.3,
+    "resistance_training": true,
+    "resistance_met": 4,
+    "training_intensity": 0.75,
+    "mental_work_hours": 6,
+    "sleep_hours": 8,
+    "sleep_start_hour": 22
+  },
+  "model": {
+    "protein_target_g_kg": 1.6,
+    "liver_capacity_g": 100,
+    "muscle_capacity_g": 400,
+    "resting_hr_bpm": 65,
+    "hr_adaptation_bpm": 6,
+    "lean_gain_ceiling_kg": 2.2,
+    "adaptation_time_days": 330,
+    "fat_energy_kcal_kg": 9400,
+    "lean_energy_kcal_kg": 1800,
+    "thermic_fractions": { "protein": 0.25, "carbohydrate": 0.075, "fat": 0.02 }
+  }
+}

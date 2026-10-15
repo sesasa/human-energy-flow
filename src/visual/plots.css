@@ -1,0 +1,53 @@
+/* Compact dark time-series cards (PlotCard). ~150px tall with 1–3 series. */
+.plot-card{position:relative;display:grid;gap:3px;padding:7px 10px 6px;border:1px solid var(--line,#2c3e2f);border-radius:6px;background:#15211b;color:var(--paper,#e4e8d5);transition:opacity .25s,border-color .25s}
+.plot-card.is-active{border-color:#4d6649}
+.plot-card.is-dimmed{opacity:.5}
+.plot-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-width:0}
+.plot-title{margin:0;font:600 11px/1.2 'Manrope',system-ui,sans-serif;letter-spacing:.2px}
+.plot-unit{color:var(--muted,#9aa88e);font-size:9px;letter-spacing:.3px;text-align:right}
+
+.plot-readout{display:flex;flex-wrap:wrap;gap:1px 12px;font-size:10px;line-height:1.25}
+.plot-row{display:flex;align-items:baseline;gap:5px;min-width:0;border-radius:3px;transition:opacity .2s}
+.plot-row:focus-visible{outline-offset:2px}
+.plot-row.is-dim{opacity:.45}
+.plot-key{flex:none;width:12px;height:0;border-top:2px solid var(--series-color);align-self:center}
+.plot-key.dashed{border-top-style:dashed}
+.plot-label{color:#c3ccb4}
+.plot-value{font-weight:650;font-variant-numeric:tabular-nums;color:var(--paper,#e4e8d5)}
+.plot-row.no-value .plot-value{color:var(--muted,#9aa88e);font-weight:500}
+.plot-detail,.plot-change{color:var(--dim,#75866d);font-size:9px}
+.plot-change{color:#a5b991}
+
+.plot-frame{display:grid;grid-template-columns:30px 1fr;gap:4px}
+.plot-y{position:relative;font:9px/1 ui-monospace,monospace;color:#82997f;text-align:right}
+.plot-y span{position:absolute;right:0;transform:translateY(-50%);white-space:nowrap}
+.plot-area{position:relative;height:54px;cursor:ew-resize;touch-action:pan-y;user-select:none;-webkit-user-select:none;border-radius:2px}
+.plot-area:focus-visible{outline:2px solid #c6dca8;outline-offset:3px}
+.plot-svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible;display:block}
+.plot-band{fill:rgba(207,190,146,.1)}
+.plot-tick{fill:#c79394}
+.plot-band-label{position:absolute;top:-1px;transform:translateX(2px);font-size:8px;color:#a39a7c;pointer-events:none;white-space:nowrap}
+.plot-reference{fill:#88ad79;opacity:.13}
+.plot-reference-line{stroke:#88ad79;stroke-width:1;stroke-dasharray:3 4;opacity:.6;fill:none}
+.plot-grid path{stroke:#78988b;stroke-opacity:.16;stroke-width:1;fill:none}
+.plot-zero{stroke:#cfd8bd;stroke-opacity:.45;stroke-width:1;fill:none}
+.plot-limit{stroke:#cfd8bd;stroke-opacity:.5;stroke-width:1;stroke-dasharray:1 3;fill:none}
+.plot-line{fill:none;stroke-width:1.7;stroke-linejoin:round;stroke-linecap:round;transition:opacity .2s,stroke-width .2s}
+.plot-uncertainty{opacity:.18;stroke:none}
+.plot-line.is-focus{stroke-width:2.6}
+.plot-line.is-dim{opacity:.3}
+.plot-uncertainty.is-dim{opacity:.07}
+.plot-observed{stroke:#f0edd8;stroke-width:8;stroke-linecap:round;fill:none}
+.plot-cursor-line{stroke:#eef3da;stroke-opacity:.6;stroke-width:1;stroke-dasharray:3 3}
+.plot-dot{stroke-width:7;stroke-linecap:round;fill:none}
+.plot-cursor.outside{display:none}
+.plot-area.dragging .plot-cursor-line{stroke-opacity:.9}
+
+.plot-x{position:relative;height:11px;margin-left:34px;font:9px/1 ui-monospace,monospace;color:#82997f}
+.plot-x span{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap}
+.plot-x span.start{transform:none}
+.plot-x span.end{transform:translateX(-100%)}
+.plot-x-label{margin-left:34px;font-size:8.5px;color:var(--dim,#75866d);letter-spacing:.3px}
+.plot-note{margin:0;font-size:8.5px;line-height:1.3;color:var(--muted,#9aa88e)}
+
+@media (prefers-reduced-motion:reduce){.plot-card,.plot-row,.plot-line{transition:none}}

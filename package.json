@@ -1,0 +1,29 @@
+{
+  "name": "human-energy-flow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --host 127.0.0.1",
+    "test": "tsx --test tests/*.test.ts",
+    "test:browser": "tsx tests/browser.ts",
+    "test:composition": "tsx tests/composition-browser.ts",
+    "test:diet": "tsx tests/diet-browser.ts",
+    "test:status": "tsx tests/status-browser.ts",
+    "test:micronutrients": "tsx tests/micronutrients-browser.ts",
+    "test:viewer": "tsx tests/viewer-browser.ts",
+    "test:profile": "tsx tests/profile-browser.ts",
+    "test:templates": "tsx tests/templates-browser.ts",
+    "test:daily-body": "tsx tests/daily-body-browser.ts",
+    "test:guided": "tsx tests/guided-browser.ts",
+    "test:coffee": "tsx tests/coffee-browser.ts"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.56.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0"
+  }
+}

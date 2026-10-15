@@ -1,0 +1,153 @@
+# Result-stage review: Human Energy Flow v1
+
+This review is based only on the supplied text. I made no tool calls and changed no files. I have not seen any screenshots. `config.ts`, `charts.ts` and `style.css` were not supplied (see Scope limitations). Some magnitudes are my own hand calculations from the supplied code and are marked **(calc)**.
+
+## Numeric plausibility (artifacts/numerical-output.json)
+
+These outputs look plausible for a teaching model:
+
+- **Energy figures:**
+  - RMR is 1673.75 kcal/day.
+  - Net exercise is 349.5 kcal. The run is 9.3 MET × 75 kg × 0.3 h minus rest, which gives 188.3.
+  - TEF is 243 kcal, about 9.3% of intake.
+  - Total daily expenditure is 2616 kcal, a PAL of about 1.56.
+- **Day ledger:** The day splits into roughly 50% carbohydrate, 20% protein and 30% fat oxidation. Fat oxidized is about 88 g against 87 g eaten, which fits a balance of −13 kcal.
+- **Glycogen:** Liver glycogen stays at 80–100 g. Muscle glycogen sits around 97% full (387 of 400 g), and one workout draws about 50 g **(calc)**.
+- **Three-year outputs:**
+  - Lean mass rises +1.32, +1.85 and +2.06 kg.
+  - Resting HR falls from 65 to 59 bpm.
+  - Fat mass falls from 12.75 to 11.15 kg.
+
+The concerns are about how these numbers are generated, labeled and narrated. The individual figures are not obviously wrong.
+
+## Prioritized findings
+
+### 1. Confirmed bug: the long-term view freezes the body mid-workout
+In `main.ts` `render()`, the long-term phase calls `sampleDay(day, 630)`. Minute 630 is 16:30, which falls inside the resistance block (minutes 618–660).
+
+For the whole three-year phase this has several visible effects:
+- `exercisePower > 0`, so the SVG gets the `exercising` class.
+- Flow speed is set to 0.7 s.
+- `floor(630/4) % 3 = 1`, so back and biceps are permanently highlighted orange.
+- The HR display says "resting heart rate", and the tag reads e.g. "PUSH" or "ACTIVE RECOVERY". Both contradict the pull-muscle highlight.
+
+**Fix:** sample a genuinely resting minute, or the 24 h mean state. Alternatively, pass `exercise=false` explicitly when `long != null`.
+
+### 2. Confirmed bug: captions are hard-coded and contradict edited scenarios
+- **Long-term captions** always say lean tissue rises, resting HR falls, and the year-3 title is "A well-conditioned steady state." These are fixed strings in `main.ts`.
+  - With exercise set to 0, the budget is +336 kcal/day at fixed intake.
+  - With weight feedback of about 14.7 kcal/kg/day (Mifflin 10 plus movement 4.67), the time constant is about 640 days.
+  - Fat gain would then be about 10 kg in year 1 and about 19 kg by year 3, ending near 34% body fat **(calc)**.
+  - The test only asserts `fat > initial`.
+- **Day "summary" caption** always says "Intake and expenditure are close." For example, fat set to 150 g gives roughly +570 kcal/day.
+
+**Fix:**
+- Choose caption variants from the computed balance, lean gain and fitness.
+- State that intake is held constant.
+- Consider making `atLimit` reachable in tests.
+
+### 3. Model interpretation: long-term fat loss comes from an imbalance below estimation precision
+The day view calls −13 kcal/day "within estimation uncertainty." The long-term view turns that same imbalance into a 0.1 kg-precise drop from 17.0% to 14.8% body fat.
+
+Two drivers explain it:
+- The weekly mean is about −8 kcal/day **(calc)**. The light day is about +23 kcal.
+- Every kilogram of lean gained raises Mifflin, movement and exercise costs by about 19 kcal/day. That is why the balance worsens to −19.7 at day 365.
+
+Both effects are smaller than the model's own uncertainty, so the fat trajectory is noise presented as an outcome.
+
+**Fix:** either calibrate the default intake to a neutral weekly mean, or show the fat change as an uncertainty band. For scale, ±50 kcal/day is roughly ±2 kg/year at first.
+
+### 4. Confirmed usability bug: narration is cut off at default speed
+At 8 simulated minutes per second, these chapters last:
+
+| Transition | Simulated time | Real time |
+|---|---|---|
+| Breakfast → absorption | 25 min | 3.1 s |
+| Absorption → insulin | 30 min | 3.75 s |
+| Insulin → distribution | 55 min | 6.9 s |
+| Run | 18 min | 2.25 s |
+| Resistance | 42 min | 5.25 s |
+
+Captions are 25–35 words, roughly 10–14 s of speech at rate 0.95. `Narration.say()` cancels the current utterance whenever a new chapter starts, so the dense morning and exercise sequence is truncated mid-sentence at 1×. At 5×, almost every chapter is truncated. Captions are also hard to read in 2–4 s.
+
+The browser test only checks `aria-pressed`, so it cannot catch this.
+
+**Fix:** add a per-chapter minimum dwell, slowing time in dense chapters when voice is on. This keeps the "timeline is master" rule.
+
+### 5. Physiology and consistency: the fuel-mix display disagrees with the ledger, and per-minute carb oxidation can exceed expenditure
+- **Fuel mix:** The display shows only carbohydrate plus fat. At rest it reads 38% carbohydrate and 62% fat, and it never shows protein. The day ledger implies roughly 50/30/20 for carbohydrate/fat/protein. The displayed share is a separate heuristic, not derived from the simulated flows.
+- **Overflow oxidation:** Carbohydrate that finds no glycogen room (`remainder`) is booked as oxidized in the same minute.
+  - At the meal peak, about 0.86 g/min is absorbed. Muscle glycogen is about 97% full and refills quickly.
+  - Carb oxidation can therefore reach about 2.5 kcal/min. Total awake expenditure is about 1.7 kcal/min **(calc)**.
+  - That implies negative instantaneous fat oxidation. The daily residual hides this.
+- **Missing ledger field:** The proposal promised that overflow oxidation would be tracked, but `DayLedger` has no overflow field.
+
+**Fix:**
+- Cap per-minute carb oxidation at that minute's expenditure.
+- Book the excess as fat-sparing or storage, matching how the daily residual already treats it.
+- Derive the displayed mix, including protein, from those same per-minute flows.
+- Add a test asserting per-minute fat oxidation is ≥ 0.
+
+### 6. Validation gap: the ledger and residual tests are true by construction
+- **Carbohydrate:** At each step, `carbOx = in − liverIn − muscleIn + liverOutput + muscleUsed`. So `in − carbOx ≡ Δglycogen` holds algebraically.
+- **Protein:** `proteinEnergyOxidized` is defined as `proteinIn × 4`.
+- **Fat:** `fatEnergyStored` is defined as a residual.
+- **Day energy:** `residual` reduces to 4 × (the carbohydrate identity).
+- **Long-term:** `storedEnergy` is recomputed from the same fat and lean updates, so `residual = 0` always.
+
+These tests catch refactoring errors but do not validate physiology. `VALIDATION.md` should not present them as validation.
+
+**Fix:** add independent checks, for example:
+- Per-minute fat oxidation ≥ 0.
+- A plausible daily respiratory-quotient range.
+- Overnight liver glycogen decline within a sourced range.
+- No-exercise fat trajectory against the analytic exponential (time constant about 640 days).
+
+### 7. Model inconsistency: the "moderately fit" starting state is ignored
+`person.fitness` is never read in the supplied code. Long-term fitness starts at 0, and resting HR falls 6 bpm with +2.06 kg lean. That describes someone *starting* this program.
+
+Meanwhile, the day engine warms up a repeating day as if the routine were already habitual. The year-3 caption "An already fit body has less room for change" contradicts both.
+
+**Fix:** either initialize fitness and prior adaptation from `person.fitness`, or state in the UI that day 0 is when this program begins.
+
+### 8. Visual inconsistency: the daily workout trains the whole body, but the narrative describes a split
+During resistance, `BodyView.update` rotates chest/shoulders/triceps, then back/biceps, then legs/glutes/core every 4 minutes. That is a full-body session.
+
+The resistance scene says "PUSH · PULL · LEGS", and the long-term model uses a one-split-per-day rotation.
+
+**Fix:** highlight only the current day's split from `trainingRotation`.
+
+**Minor anatomy note:** hamstrings and "back" appear on an anterior view. Either label them as projected posterior muscles or drop them from the front view.
+
+### 9. Confirmed bugs in edited scenarios: schedule and display
+- **Run distance:** With exercise under 18 min, the run is shortened but the scene still shows "3 km" (fixed `run_distance_km`). It also shows "RUN + RESISTANCE" when there is no resistance block.
+- **Mental work:** Setting 10 h schedules only 9 h, and 9.5 h gives 9 h. The `[18,19]` window is masked by the 17:00–19:00 post-exercise recovery block, but the footer reports the requested hours.
+- **Day fat bar:** Its width is hard-coded at 90%.
+- **Latent:** `sampleDay` interpolates `hour` across midnight (23.98 → 0), giving about 12 at fractional minutes. It is currently unused but will mislead later.
+
+**Fix:** derive a single typed schedule of timed blocks and use it in four places: `activityAt`, `inWorkout`, `chapters` and the milestones. Also validate overlaps, and compute run distance as speed × minutes. As a side benefit, `energyBudget` would no longer be recomputed on every `activityAt` call.
+
+### 10. Physiology: exercise glucose supply is skewed toward the "endogenous" marker
+`liverOutput` is capped at about 60% of unmet demand (`.62 − insulin·.2`), even when liver glycogen is plentiful.
+
+During the run this produces:
+- About 0.22 g/min from liver glycogen.
+- About 0.15 g/min booked as the gluconeogenesis marker **(calc)**.
+
+In reality, hepatic glycogenolysis dominates exercise glucose output. In addition, `glucoseTarget` falls with exercise power. In a fed adult at around 9 MET, blood glucose is usually maintained or rises.
+
+**Fix:**
+- Let the liver supply most of the exercise demand, scaled by glycogen availability.
+- Remove or soften the exercise term in the glucose target.
+
+## Scope limitations (not bugs)
+
+- **Unsupplied files:** `config.ts`, `charts.ts` and `style.css` were not supplied. I could not verify `validateScenario`, the `assumptions` text, `dayChart`/`longChart`, or the reduced-motion CSS.
+- **Screenshots:** I did not see them. Visual comments are based on the SVG source and the coordinates only. The SVG layout itself looks sound: the portal route goes to the right-side liver, the lymph route goes to the left subclavian region and then the heart, the heart sits left of midline, and muscles stay within the silhouette.
+- **Hand calculations:** The no-exercise fat gain, the per-minute overflow, and the run's liver/endogenous split are my calculations. Run the suggested tests to confirm them.
+- **Documented deferrals:** These are documented choices, not defects, and the "science" dialog discloses them:
+  - FFM-specific RMR.
+  - Synthesis cost.
+  - Fixed intake.
+  - Relative glucose and insulin units.
+- **Browser checks:** These passed according to the user.

@@ -1,0 +1,34 @@
+I've written the file. I couldn't run the TypeScript compiler (I only have Read and Write tools here), so it hasn't been type-checked or rendered yet. Here's the summary.
+
+## `src/visual/plates.ts` (about 205 lines; no other files touched)
+
+**What it exports:** `mealPlate(meal: Meal, idPrefix?: string): string`, which imports `foodById` and `Meal` from `../model/diet`. It returns one SVG with `viewBox="0 0 320 240"`, `role="img"`, and an `aria-label` plus `<title>` listing the actual foods and grams, e.g. `Eggs on toast: Eggs 100 g (2 eggs), Wholemeal bread 120 g (3 slices), …`.
+
+**How a plate is built**
+1. **Inputs:** portions with 0 g, invalid or unknown IDs are skipped. If the same food appears twice, its grams are added together.
+2. **Sorting the food:**
+   - **Sides:** milk is drawn as a glass and yogurt as a small ceramic bowl, both to the right of the plate. The plate then moves left and shrinks slightly.
+   - **Garnish:** oil is a thin gold drizzle with droplets, and salt is a few white grains. Both sit on top of the food.
+   - **Bowl:** if there are oats, the plate becomes a deep bowl filled with porridge, and the fruit and nuts sit on top.
+   - **Plate items:** main foods (meat, fish, eggs, starches, bread, cake) come first, then small accompaniments. Each group is ordered by its share of a typical portion. At most 7 are drawn; any extras still appear in the label.
+3. **Layout:** each item count from 1 to 7 has a fixed set of positions, biggest first, so the plate doesn't get cluttered.
+4. **Size:** drawn size is `slot × clamp(0.82·√(grams/typical), 0.45, 1.08)`, so area grows with weight but always fits its slot. Eggs (50 g each) and bread (40 g per slice) are drawn as separate pieces, up to 4, with a small `×N` mark when there are more.
+5. **Drawings:** native SVG paths with gradients, highlights and soft shadows on a dark sage background and a cream ceramic plate. Every food type in the catalogue has its own drawing, for example:
+   - grill-marked chicken slices
+   - steak with a fat rim
+   - salmon with fat lines, or striped mackerel skin
+   - halved eggs with yolks, and bread slices with crust and seeds
+   - rice grains (white or brown), wedge-cut potatoes, a spaghetti nest
+   - broccoli florets, spinach leaves, carrot rounds, tomato slices
+   - fruit, almonds or walnuts, cheddar cubes, chocolate squares
+   - an iced carrot-cake slice
+   
+   There's also a simple fallback mound for unknown types. No emoji or external assets are used.
+6. **IDs:** gradient IDs are `${prefix}-${name}`. The prefix is cleaned up and defaults to an incrementing counter (`meal-plate-N`), so several plates on one page won't clash.
+7. **Repeatable output:** grain and nut scatter uses a seeded random generator, so a given meal always draws the same way.
+
+**Not yet checked:**
+- Run `tsc --noEmit` to confirm it builds in strict mode.
+- Render a few meals from the reference week to check spacing by eye, especially the crowded 6–7 item layouts and the egg/bread count marks.
+
+There's one harmless leftover in `defs()`: a trailing comma in a parameter list, `(s, i, )`. It's valid TypeScript but you may want to tidy it.

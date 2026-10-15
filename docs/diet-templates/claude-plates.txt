@@ -1,0 +1,22 @@
+I've implemented the new real-food visuals in `src/visual/plates.ts` and touched no other file. I didn't run anything, so it's untested: I haven't type-checked it, run the tests or looked at the rendered SVGs.
+
+**What changed**
+- **Sizing and slots:** added typical portion weights for the new foods (bun 80, burger 100, fries 150, pizza 300, fried-chicken 180, sausage 75, cola 330, tea 300 g). The six solid foods get the large plate slots. Some new colour gradients were added in the same style as the existing ones.
+- **New drawings on the plate:**
+  - **bun:** a closed soft roll with a pale cut line.
+  - **burger** (patty on its own): a seared patty.
+  - **fries:** a layered pile of sticks.
+  - **pizza:** a whole cheese-and-tomato pizza with crust, melted cheese and eight slice cuts.
+  - **fried-chicken:** two battered drumsticks and a thigh piece.
+  - **sausage:** two grilled sausages with grill marks.
+- **Drinks:** cola goes in a glass with ice and a straw, and tea in a glass mug with steam. Both sit beside the plate, like milk and yogurt. The vessel size and liquid level follow the grams. If there are three or four drinks/pots, the column shrinks to fit; with one or two, positions are exactly as before.
+- **Assembled burger:** when a patty and a bun are both in a meal, they're drawn as one stack in a single slot: bottom bun, patty, melted cheese slice (if cheese is present) and top bun. Each layer is sized by its own grams with the same formula as everything else, and keeps its own `data-food`/`data-grams`/`data-portion-scale`. The top bun is tagged `data-food-part="bun"` so `data-food="bun"` appears only once. The stack's wrapper has `data-food-group="cheeseburger"`.
+- **Accessible label:** every food is still listed with its grams. Burger parts are grouped, e.g. `Cheeseburger: Beef burger patty 100 g + White bun 80 g (1 bun) + Cheddar 20 g`. Buns get a count, and cola/tea get an "about N ml" note.
+- **Unchanged:** the plate-sizing maths and existing data attributes, so the rice scale tests should still pass. White bread uses the existing bread drawing and cake is untouched.
+
+**Assumptions**
+- The breakfast's bun and sausages are drawn side by side on the plate, not put together as a sausage bap. Only patty + bun is assembled.
+- Any cheese in a meal that has a burger is used as the burger's cheese slice.
+- The sausage drawing always shows two sausages, and the drawing gets bigger with the grams. The source data doesn't give a per-sausage weight.
+- The fried chicken is drawn with drumstick bones to make it recognisable, even though the data weight excludes bones. The straw, ice and steam are decoration only.
+- Every SVG now contains the new colour gradient definitions, which are invisible, so Healthy plates look the same, but their SVG text isn't byte-for-byte identical.
