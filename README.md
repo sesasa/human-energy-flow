@@ -2,6 +2,8 @@
 
 **An interactive simulation of human metabolism: meals, glucose and insulin, energy stores, exercise, recovery and three years of training adaptation, explained visually for a lay audience.**
 
+**▶ [Try it live](https://sesasa.github.io/human-energy-flow/)**
+
 ![A simulated day](docs/screenshots/day-baseline.png)
 
 **Highlights**
